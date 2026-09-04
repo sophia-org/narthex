@@ -141,6 +141,19 @@ screenshot on demand would defeat pixel blindness, so capture is not a
 capability either policy client holds; it is a brokered decision with an
 identified requester.
 
+### Where This Client's Evidence Lives
+
+Narthex's own gate proves wire conformance: the shared golden and malformed
+corpora, the descriptor proof, and the work-area reservation proof. It does not
+and cannot prove physical behavior, because that requires a real console, DRM
+takeover, and Sophia's supervised session.
+
+That evidence lives in Sophia's tty4 gates, which build this repository from a
+clean signed commit and bind it into the proof record alongside Sophia and
+Hagia. Signed archives `0006` and `0007` are the switcher lifecycle and the
+work-area reservation respectively, both produced while this code was in-tree
+in Hagia.
+
 ## What Narthex Owns
 
 Narthex owns shell surface policy over the `sophia_shell_v1` wire:

@@ -28,6 +28,19 @@ Split from Hagia at commit `07ad3e6338da61319c5058f7593949c8810b25da`, where thi
 reducer, and conformance corpus are unchanged by the split; only module paths,
 the binary name, and evidence prefixes differ.
 
+## Evidence
+
+Signed archive `0006` proves the retained generic switcher lifecycle — launch,
+shortcut admission, presentation, exact activation, broker-checked dispatch,
+withdrawal, and fresh-epoch reconnect in a separate protected process. Signed
+archive `0007` separately proves coherent work-area reservation and reconnect.
+Both were produced while this code was in-tree in Hagia as `hagia-shell`; the
+wire implementation and reducer are unchanged by the split.
+
+The gate below covers wire conformance only. Physical evidence on real hardware
+comes from Sophia's tty4 gates, which build this repository and bind its commit
+into the proof record.
+
 ## Verification
 
 Run the cross-repository conformance gate against a Sophia checkout:
