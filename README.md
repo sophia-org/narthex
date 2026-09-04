@@ -1,18 +1,25 @@
 # Narthex
 
-Narthex is the standalone shell client for the Sophia display server. It is the
+Narthex is the reference shell for the
+[Sophia display server](https://github.com/sophia-org/sophia-stack). It's the
 entryway around the workspace: it decides what appears in a shell surface and
-what a selection means, and it owns no pixels.
+what a selection means, and it owns no pixels. As a reference implementation
+it stays deliberately small — the standing proof that a useful shell can live
+in Sophia's most confined tier, and the client to copy from if you're building
+one of your own.
 
-Sophia launches Narthex in a separate protected domain and sends only bounded
-sanitized descriptors and opaque actions. Engine renders the presented list,
-captures input, and arbitrates pointer grabs. Narthex supplies ordering and
-selection, receives an exact activation, and acknowledges it. Surface
-identifiers, coordinates, and icons are never disclosed to this process.
+Sophia launches Narthex in a separate protected domain and sends it only
+bounded, sanitized descriptors and opaque actions. Engine renders the
+presented list, captures input, and arbitrates pointer grabs. Narthex supplies
+ordering and selection, receives an exact activation, and acknowledges it.
+Surface identifiers, coordinates, and icons never reach this process.
 
 Narthex is not a window manager. Window placement, tags, views, layouts, and
-focus policy belong to [Hagia](https://github.com/sophia-org/hagia). The two are
-separate clients of the same display server and share no state.
+focus policy belong to [Hagia](https://github.com/sophia-org/hagia), the
+reference window manager. The two are separate clients of the same display
+server and share no state. If you're deciding what to build and where it
+goes, start with Sophia's
+[Building on Sophia](https://github.com/sophia-org/sophia-stack/blob/master/docs/building-on-sophia.md).
 
 ## Scope
 
