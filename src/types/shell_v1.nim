@@ -23,6 +23,11 @@ type
     candidateOutcome = 100
     activation = 101
     activationAck = 102
+    tabsBegin = 103
+    tabsGroup = 104
+    tabsEntry = 105
+    tabsEnd = 106
+    tabsCandidate = 107
 
   ShellFrame* = object
     kind*: ShellMessageKind

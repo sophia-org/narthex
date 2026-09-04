@@ -1,7 +1,8 @@
 import std/[net, options, os, strutils]
 
 import types/shell_v1
-import wire/shell_v1
+import wire/[shell_v1, shell_tabs]
+import types/shell_tabs
 
 type ShellSocketClosedError = object of CatchableError
 
@@ -160,57 +161,77 @@ proc runServer(socketPath: string) =
   let socket = socketPath.connect()
   defer:
     socket.close()
-  socket.sendFrame(clientHelloFrame())
-  let connectionEpoch = socket.receiveFrame().validateWelcome()
+  socket.sendFrame(clientHelloFrame(tabs = true))
+  let welcome = socket.receiveFrame()
+  let connectionEpoch = welcome.validateWelcome()
+  let tabsEnabled =
+    welcome.payload.u16At(0) >= 2 and
+    (welcome.payload.u64At(12) and shellTabCapability) != 0
   var model = ShellModel(connectionEpoch: connectionEpoch)
-  var candidateGeneration = 1'u64
+  var tabs: ShellTabModel
+  var candidateGeneration = 0'u64
   var showNext = true
   let reservation = barReservation()
-  if reservation.isSome:
-    stdout.writeLine(
-      "narthex schema=1 status=bar_configured edge=bottom thickness=" &
-        $reservation.get().thicknessPx
-    )
-  stdout.writeLine("narthex schema=1 status=ready connection_epoch=" & $connectionEpoch)
+  stdout.writeLine("narthex schema=2 status=ready connection_epoch=" & $connectionEpoch)
   while true:
-    let snapshotFrame = socket.receiveFrame()
-    let snapshot = snapshotFrame.decodeSnapshot()
-    model.reconcile(snapshot)
-    let candidate = model.candidate(candidateGeneration, showNext, reservation)
-    socket.sendFrame(candidate.candidateFrame(snapshotFrame.transaction))
-    let prepared = socket.receiveFrame().decodeOutcome()
-    if prepared.connectionEpoch != connectionEpoch or
-        prepared.candidateGeneration != candidateGeneration or
-        prepared.kind != ShellCandidateOutcomeKind.prepared:
-      fail("Sophia did not prepare the live shell candidate")
-    let presented = socket.receiveFrame().decodeOutcome()
-    if presented.candidateGeneration != candidateGeneration:
-      fail("Sophia presented another live shell candidate")
-    if presented.kind in
-        {ShellCandidateOutcomeKind.rejected, ShellCandidateOutcomeKind.superseded}:
+    let frame = socket.receiveFrame()
+    case frame.kind
+    of ShellMessageKind.descriptorSnapshot:
+      model.reconcile(frame.decodeSnapshot())
       if candidateGeneration == high(uint64):
-        fail("live shell candidate generation exhausted")
+        fail("candidate generation exhausted")
       inc candidateGeneration
-      continue
-    model.rememberPresented(presented)
-    if candidate.visible:
-      let activationFrame = socket.receiveFrame()
-      let activation = activationFrame.decodeActivation()
-      let disposition = model.accept(activation)
       socket.sendFrame(
-        activationAckFrame(
-          connectionEpoch, activation.activation, activationFrame.transaction,
-          disposition,
+        model.candidate(candidateGeneration, showNext, reservation).candidateFrame(
+          frame.transaction
         )
       )
-      if disposition != ShellActivationDisposition.consumed:
-        fail("Sophia delivered a stale live shell activation")
-      showNext = false
+    of ShellMessageKind.tabsBegin:
+      if not tabsEnabled:
+        fail("unnegotiated tab transfer")
+      var frames = @[frame]
+      while frames[^1].kind != ShellMessageKind.tabsEnd:
+        if frames.len >= 2 + maxShellTabGroups + maxShellTabEntries:
+          fail("tab transfer overflow")
+        frames.add(socket.receiveFrame())
+      let snapshot = frames.decodeTabs()
+      if snapshot.connectionEpoch != connectionEpoch:
+        fail("stale tab epoch")
+      if candidateGeneration == high(uint64):
+        fail("candidate generation exhausted")
+      inc candidateGeneration
+      socket.sendFrame(
+        tabs.proposeTabs(snapshot, candidateGeneration, frame.transaction)
+      )
+    of ShellMessageKind.candidateOutcome:
+      let outcome = frame.decodeOutcome()
+      if outcome.candidateGeneration == tabs.pendingGeneration:
+        tabs.rememberTabs(outcome)
+      elif outcome.kind == ShellCandidateOutcomeKind.presented:
+        model.rememberPresented(outcome)
+        if not showNext:
+          showNext = true
+      elif outcome.kind notin {
+        ShellCandidateOutcomeKind.prepared, ShellCandidateOutcomeKind.rejected,
+        ShellCandidateOutcomeKind.superseded,
+      }:
+        fail("invalid switcher outcome")
+    of ShellMessageKind.activation:
+      let activation = frame.decodeActivation()
+      var disposition: ShellActivationDisposition
+      if activation.candidateGeneration == tabs.presentedGeneration:
+        disposition = tabs.acceptTab(activation)
+      else:
+        disposition = model.accept(activation)
+        if disposition == ShellActivationDisposition.consumed:
+          showNext = false
+      socket.sendFrame(
+        activationAckFrame(
+          connectionEpoch, activation.activation, frame.transaction, disposition
+        )
+      )
     else:
-      showNext = true
-    if candidateGeneration == high(uint64):
-      fail("live shell candidate generation exhausted")
-    inc candidateGeneration
+      fail("unexpected shell message")
 
 proc run(arguments: seq[string]) =
   let socketPath = getEnv("SOPHIA_SHELL_SOCKET")

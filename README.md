@@ -74,3 +74,6 @@ data-oriented layout gate alone.
 
 `SOPHIA_SHELL_SOCKET` is required. `SOPHIA_SHELL_BAR_THICKNESS` enables the
 bottom-edge reservation; unset or zero reserves nothing.
+
+[Persistent tab descriptors](docs/tabbed-layouts.md) use shell revision 2 in
+`--serve`; revision-1 proof and switcher messages remain supported.
