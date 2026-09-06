@@ -4,6 +4,8 @@ import types/shell_v1
 import wire/[shell_v1, shell_tabs]
 import types/[shell_tabs, shell_reference]
 import wire/shell_reference
+import types/shell_launcher
+import wire/shell_launcher
 import config
 
 type ShellSocketClosedError = object of CatchableError
@@ -163,7 +165,7 @@ proc runServer(socketPath: string) =
   let socket = socketPath.connect()
   defer:
     socket.close()
-  socket.sendFrame(clientHelloFrame(tabs = true, reference = true))
+  socket.sendFrame(clientHelloFrame(tabs = true, reference = true, launcher = true))
   let welcome = socket.receiveFrame()
   let connectionEpoch = welcome.validateWelcome()
   let tabsEnabled =
@@ -174,6 +176,10 @@ proc runServer(socketPath: string) =
     welcome.payload.u16At(0) >= 3 and
     (welcome.payload.u64At(12) and referenceCapabilities) == referenceCapabilities
   var reference = ReferenceModel(skipAtStartup: skipHelpAtStartup())
+  let launcherEnabled =
+    (welcome.payload.u64At(12) and launcherCapabilities) == launcherCapabilities
+  var launcher: LauncherModel
+  var applicationFrames: seq[ShellFrame]
   var tabs: ShellTabModel
   var candidateGeneration = 0'u64
   var showNext = true
@@ -192,6 +198,35 @@ proc runServer(socketPath: string) =
           frame.transaction
         )
       )
+    of ShellMessageKind.applicationsBegin:
+      if not launcherEnabled or applicationFrames.len != 0:
+        fail("unnegotiated or overlapping application catalog")
+      applicationFrames = @[frame]
+    of ShellMessageKind.applicationsEntry, ShellMessageKind.applicationsEnd:
+      if applicationFrames.len == 0 or applicationFrames.len >= maxApplications + 2:
+        fail("application catalog overflow")
+      applicationFrames.add(frame)
+      if frame.kind == ShellMessageKind.applicationsEnd:
+        let catalog = applicationFrames.decodeApplications()
+        if catalog.epoch != connectionEpoch:
+          fail("stale application catalog")
+        launcher.reconcileApplications(catalog)
+        applicationFrames.setLen(0)
+    of ShellMessageKind.launcherRequest:
+      if not launcherEnabled or candidateGeneration == high(uint64):
+        fail("invalid launcher request")
+      inc candidateGeneration
+      socket.sendFrame(
+        launcher.proposeLauncher(
+          frame.decodeLauncherRequest(), candidateGeneration, frame.transaction
+        )
+      )
+    of ShellMessageKind.launcherOutcome:
+      launcher.rememberLauncher(frame)
+    of ShellMessageKind.launcherActivation:
+      socket.sendFrame(launcher.acknowledgeLauncher(frame))
+    of ShellMessageKind.launchOutcome:
+      launcher.validateLaunchOutcome(frame)
     of ShellMessageKind.shortcutsBegin:
       if not referenceEnabled:
         fail("unnegotiated shortcut catalog")

@@ -14,6 +14,7 @@ nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tshell-v1" tests/tshell_v1.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache -o:"$build_dir/tshell-tabs" tests/tshell_tabs.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache -o:"$build_dir/tshell-reference" tests/tshell_reference.nim
+nim c -r --hints:off --path:src --nimcache:"$build_dir/nimcache-launcher" -o:"$build_dir/tshell-launcher" tests/tshell_launcher.nim
 nim c --hints:off --path:src --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/narthex" src/narthex.nim
 cd "$SOPHIA_STACK_ROOT"
@@ -24,3 +25,5 @@ cargo run --offline -q -p sophia-runtime --example shell_descriptor_conformance_
 
 cargo run --offline -q -p sophia-runtime --example shell_descriptor_conformance_host -- \
     "$build_dir/narthex" --serve
+
+cargo run --offline -q -p sophia-runtime --example shell_launcher_conformance_host -- "$build_dir/narthex"

@@ -34,6 +34,15 @@ type
     referenceRequest = 111
     referenceCandidate = 112
     referenceOutcome = 113
+    applicationsBegin = 114
+    applicationsEntry = 115
+    applicationsEnd = 116
+    launcherRequest = 117
+    launcherCandidate = 118
+    launcherOutcome = 119
+    launcherActivation = 120
+    launcherActivationAck = 121
+    launchOutcome = 122
 
   ShellFrame* = object
     kind*: ShellMessageKind

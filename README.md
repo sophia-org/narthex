@@ -99,3 +99,14 @@ renders the shared bundled JetBrains Mono default through its normal GPU path.
 There are no toolkit, X11, image-buffer, hit-testing, or WM dependencies here.
 The catalog carries public action names for display, never invocation tokens.
 See Sophia's `docs/shell-reference-sheets.md` for the independent wire contract.
+
+## Application launcher
+
+Serve mode negotiates the optional revision-4 application catalog and launcher
+capabilities. Narthex ranks bounded application descriptors and returns selected
+slots; Engine owns text input, GPU rendering and hit testing. Only the session
+executes a presented selection after a matching activation acknowledgement.
+No executable path, desktop-entry file, display credential or host control socket
+is added to this client. The launcher uses the shared JetBrains Mono presentation
+default. Configure catalogs and `session:application-launcher` in Sophia; this
+client requires no Rofi or Quickshell runtime.

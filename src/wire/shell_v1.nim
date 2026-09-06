@@ -59,7 +59,7 @@ proc kind(raw: uint16): ShellMessageKind =
     ShellMessageKind.activation
   of 102:
     ShellMessageKind.activationAck
-  of 103 .. 113:
+  of 103 .. 122:
     ShellMessageKind(raw)
   else:
     fail("unknown shell message kind")
@@ -87,11 +87,15 @@ proc validatePayload(kind: ShellMessageKind, payload: openArray[byte]) =
   of ShellMessageKind.activation:
     if payload.len != 76 or payload.u16At(66) != 0:
       fail("invalid shell activation")
-  of ShellMessageKind.shortcutsBegin, ShellMessageKind.shortcutsEntry,
-      ShellMessageKind.shortcutsEnd, ShellMessageKind.referenceRequest,
-      ShellMessageKind.referenceCandidate, ShellMessageKind.referenceOutcome,
-      ShellMessageKind.tabsBegin, ShellMessageKind.tabsGroup,
-      ShellMessageKind.tabsEntry, ShellMessageKind.tabsEnd,
+  of ShellMessageKind.applicationsBegin, ShellMessageKind.applicationsEntry,
+      ShellMessageKind.applicationsEnd, ShellMessageKind.launcherRequest,
+      ShellMessageKind.launcherCandidate, ShellMessageKind.launcherOutcome,
+      ShellMessageKind.launcherActivation, ShellMessageKind.launcherActivationAck,
+      ShellMessageKind.launchOutcome, ShellMessageKind.shortcutsBegin,
+      ShellMessageKind.shortcutsEntry, ShellMessageKind.shortcutsEnd,
+      ShellMessageKind.referenceRequest, ShellMessageKind.referenceCandidate,
+      ShellMessageKind.referenceOutcome, ShellMessageKind.tabsBegin,
+      ShellMessageKind.tabsGroup, ShellMessageKind.tabsEntry, ShellMessageKind.tabsEnd,
       ShellMessageKind.tabsCandidate:
     if payload.len < 16:
       fail("truncated tab frame")
@@ -134,11 +138,13 @@ proc encodeShellFrame*(frame: ShellFrame): seq[byte] =
   result.addU32(0)
   result.add(frame.payload)
 
-proc clientHelloFrame*(tabs = false, reference = false): ShellFrame =
+proc clientHelloFrame*(tabs = false, reference = false, launcher = false): ShellFrame =
   result.kind = ShellMessageKind.clientHello
   result.payload.addU16(1)
   result.payload.addU16(
-    if reference:
+    if launcher:
+      4
+    elif reference:
       3
     elif tabs:
       2
@@ -147,12 +153,13 @@ proc clientHelloFrame*(tabs = false, reference = false): ShellFrame =
   )
   result.payload.addU64(
     shellDescriptorCapability or (if tabs: 4'u64 else: 0'u64) or
-      (if reference: 24'u64 else: 0'u64)
+      (if reference: 24'u64 else: 0'u64) or (if launcher: 96'u64 else: 0'u64)
   )
 
 proc validateWelcome*(frame: ShellFrame): uint64 =
   if frame.kind != ShellMessageKind.serverWelcome or
-      frame.payload.u16At(0) notin [1'u16, 2'u16, 3'u16] or frame.payload.u64At(4) == 0 or
+      frame.payload.u16At(0) notin [1'u16, 2'u16, 3'u16, 4'u16] or
+      frame.payload.u64At(4) == 0 or
       (frame.payload.u64At(12) and shellDescriptorCapability) == 0 or
       frame.payload.u16At(20) == 0 or
       frame.payload.u16At(20) > uint16(shellMaxDescriptors) or
