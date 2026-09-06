@@ -11,7 +11,7 @@ Sophia splits a desktop into three processes with different capabilities:
 | --- | --- | --- |
 | Sophia / Engine | scene, input, rendering, presentation, supervision | everything |
 | Hagia | window policy: tags, views, layouts, focus | geometry and window facts |
-| Narthex | shell policy: descriptors, reservations, activations | sanitized titles only |
+| Narthex | shell policy: descriptors, reservations, activations | sanitized titles, tab groups, read-only shortcut facts |
 
 Narthex never learns surface identifiers, coordinates, or icons. Sophia's own
 conformance evidence records this as
@@ -180,3 +180,13 @@ sanitized snapshot, and waits for exactly one bounded candidate. Narthex holds
 no state that Sophia has not confirmed presenting: a rejected or superseded
 candidate advances the generation and retries rather than becoming remembered
 state. A fresh connection epoch discards everything.
+
+## Reference sheets
+
+Revision 3 adds a 256-entry shortcut catalog, separate from the 16-descriptor
+switcher. `types/shell_reference.nim` owns passive records and bounds;
+`wire/shell_reference.nim` owns validation and the presentation reducer.
+The entry point negotiates the capabilities and `config.nim` reads only the
+selected private KDL file. Only presented outcomes advance visible/page state.
+Candidate rows carry display strings and catalog slots, never app actions.
+JetBrains Mono is Sophia's shared default; this client owns no font loader.

@@ -6,6 +6,7 @@ srcDir = "src"
 bin = @["narthex"]
 
 requires "nim >= 2.2.4"
+requires "nimkdl >= 2.1.0"
 
 task layout, "Check the data-oriented layout of the source tree":
   exec "sh tools/check_data_oriented_layout.sh"

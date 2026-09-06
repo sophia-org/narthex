@@ -2,7 +2,9 @@ import std/[net, options, os, strutils]
 
 import types/shell_v1
 import wire/[shell_v1, shell_tabs]
-import types/shell_tabs
+import types/[shell_tabs, shell_reference]
+import wire/shell_reference
+import config
 
 type ShellSocketClosedError = object of CatchableError
 
@@ -161,13 +163,17 @@ proc runServer(socketPath: string) =
   let socket = socketPath.connect()
   defer:
     socket.close()
-  socket.sendFrame(clientHelloFrame(tabs = true))
+  socket.sendFrame(clientHelloFrame(tabs = true, reference = true))
   let welcome = socket.receiveFrame()
   let connectionEpoch = welcome.validateWelcome()
   let tabsEnabled =
     welcome.payload.u16At(0) >= 2 and
     (welcome.payload.u64At(12) and shellTabCapability) != 0
   var model = ShellModel(connectionEpoch: connectionEpoch)
+  let referenceEnabled =
+    welcome.payload.u16At(0) >= 3 and
+    (welcome.payload.u64At(12) and referenceCapabilities) == referenceCapabilities
+  var reference = ReferenceModel(skipAtStartup: skipHelpAtStartup())
   var tabs: ShellTabModel
   var candidateGeneration = 0'u64
   var showNext = true
@@ -186,6 +192,33 @@ proc runServer(socketPath: string) =
           frame.transaction
         )
       )
+    of ShellMessageKind.shortcutsBegin:
+      if not referenceEnabled:
+        fail("unnegotiated shortcut catalog")
+      var frames = @[frame]
+      while frames[^1].kind != ShellMessageKind.shortcutsEnd:
+        if frames.len >= maxShortcuts + 2:
+          fail("shortcut catalog overflow")
+        frames.add(socket.receiveFrame())
+      let catalog = frames.decodeShortcuts()
+      if catalog.epoch != connectionEpoch:
+        fail("stale shortcut epoch")
+      reference.reconcile(catalog)
+    of ShellMessageKind.referenceRequest:
+      if not referenceEnabled:
+        fail("unnegotiated reference request")
+      if candidateGeneration == high(uint64):
+        fail("candidate generation exhausted")
+      inc candidateGeneration
+      socket.sendFrame(
+        reference.proposeReference(
+          frame.decodeReferenceRequest(), candidateGeneration, frame.transaction
+        )
+      )
+    of ShellMessageKind.referenceOutcome:
+      if not referenceEnabled:
+        fail("unnegotiated reference outcome")
+      reference.rememberReference(frame)
     of ShellMessageKind.tabsBegin:
       if not tabsEnabled:
         fail("unnegotiated tab transfer")

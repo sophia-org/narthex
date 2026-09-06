@@ -13,6 +13,7 @@ cd "$root"
 nim c -r --hints:off --path:src --nimcache:tests/nimcache \
     -o:"$build_dir/tshell-v1" tests/tshell_v1.nim
 nim c -r --hints:off --path:src --nimcache:tests/nimcache -o:"$build_dir/tshell-tabs" tests/tshell_tabs.nim
+nim c -r --hints:off --path:src --nimcache:tests/nimcache -o:"$build_dir/tshell-reference" tests/tshell_reference.nim
 nim c --hints:off --path:src --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/narthex" src/narthex.nim
 cd "$SOPHIA_STACK_ROOT"

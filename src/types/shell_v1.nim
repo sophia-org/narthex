@@ -28,6 +28,12 @@ type
     tabsEntry = 105
     tabsEnd = 106
     tabsCandidate = 107
+    shortcutsBegin = 108
+    shortcutsEntry = 109
+    shortcutsEnd = 110
+    referenceRequest = 111
+    referenceCandidate = 112
+    referenceOutcome = 113
 
   ShellFrame* = object
     kind*: ShellMessageKind

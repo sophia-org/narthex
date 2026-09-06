@@ -77,3 +77,25 @@ bottom-edge reservation; unset or zero reserves nothing.
 
 [Persistent tab descriptors](docs/tabbed-layouts.md) use shell revision 2 in
 `--serve`; revision-1 proof and switcher messages remain supported.
+
+## Shortcut help
+
+The native `sophia_shell_v1` revision 3 reference sheet uses the active key and
+pointer bindings, with two columns and Page Up/Down or wheel paging. The next
+ordinary key dismisses and is consumed. Modifiers alone do not dismiss.
+`Super+?` is the default desktop toggle; help shows once per login unless the
+private `~/.config/narthex/config.kdl` (or XDG equivalent) contains:
+
+```kdl
+hotkey-overlay {
+    skip-at-startup #true
+}
+```
+
+Absent configuration defaults to `#false`. Session exposes only the selected
+read-only file through `SOPHIA_SHELL_CONFIG`; it does not parse these settings.
+Narthex supplies the Triad `fb8fb27` style and readable grouped rows. Sophia
+renders the shared bundled JetBrains Mono default through its normal GPU path.
+There are no toolkit, X11, image-buffer, hit-testing, or WM dependencies here.
+The catalog carries public action names for display, never invocation tokens.
+See Sophia's `docs/shell-reference-sheets.md` for the independent wire contract.
