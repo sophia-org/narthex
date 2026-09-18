@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-if [ "${SOPHIA_STACK_ROOT:-}" = "" ]; then
-    echo "SOPHIA_STACK_ROOT must name a Sophia Stack checkout" >&2
+if [ "${SOPHIA_ROOT:-}" = "" ]; then
+    echo "SOPHIA_ROOT must name a Sophia checkout" >&2
     exit 2
 fi
 
@@ -17,7 +17,7 @@ nim c -r --hints:off --path:src --nimcache:tests/nimcache -o:"$build_dir/tshell-
 nim c -r --hints:off --path:src --nimcache:"$build_dir/nimcache-launcher" -o:"$build_dir/tshell-launcher" tests/tshell_launcher.nim
 nim c --hints:off --path:src --nimcache:"$build_dir/nimcache" \
     -o:"$build_dir/narthex" src/narthex.nim
-cd "$SOPHIA_STACK_ROOT"
+cd "$SOPHIA_ROOT"
 cargo run --offline -q -p sophia-runtime --example shell_descriptor_conformance_host -- \
     "$build_dir/narthex" --proof
 cargo run --offline -q -p sophia-runtime --example shell_descriptor_conformance_host -- \

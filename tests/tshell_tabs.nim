@@ -11,7 +11,7 @@ suite "persistent tab descriptors":
     var frames: seq[ShellFrame]
     var expected: seq[byte]
     for line in readFile(
-      getEnv("SOPHIA_STACK_ROOT") / "protocol/golden/sophia-shell-tabs.frames"
+      getEnv("SOPHIA_ROOT") / "protocol/golden/sophia-shell-tabs.frames"
     )
         .splitLines():
       if line.len == 0:

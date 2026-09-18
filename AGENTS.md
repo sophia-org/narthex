@@ -38,13 +38,13 @@ before changing Narthex.
    cross-repository gate is:
 
    ```sh
-   SOPHIA_STACK_ROOT=~/dev/sophia-stack nimble test
+   SOPHIA_ROOT=~/dev/sophia-stack nimble test
    ```
 
 7. Do not run Narthex inside a live Sophia session without explicit approval.
    Offline unit and local socket-conformance tests are safe.
 8. The `--proof`, `--bar-proof`, and `--serve` flags and the `SOPHIA_SHELL_*`
    environment variable names are a contract with Sophia's conformance host.
-   Do not rename them without a coordinated change in `sophia-stack`.
+   Do not rename them without a coordinated change in Sophia.
 9. Do not kill or restart `gpg-agent`. If signing is unavailable, preserve the
    staged work and ask the user to unlock it.

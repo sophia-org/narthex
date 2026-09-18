@@ -53,7 +53,7 @@ that make the fixed layout difficult to compare with Sophia's corpus.
 
 The `--proof`, `--bar-proof`, and `--serve` flags and the `SOPHIA_SHELL_*`
 environment variable names are a contract with Sophia's conformance host.
-Renaming one requires a coordinated change in `sophia-stack`.
+Renaming one requires a coordinated change in Sophia.
 
 ## Errors, Comments, And Tests
 

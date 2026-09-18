@@ -8,7 +8,7 @@ proc hexBytes(s: string): seq[byte] =
 var catalogFrames: seq[ShellFrame]
 var records = initTable[string, ShellFrame]()
 for line in readFile(
-  getEnv("SOPHIA_STACK_ROOT") / "protocol/golden/sophia-shell-launcher.frames"
+  getEnv("SOPHIA_ROOT") / "protocol/golden/sophia-shell-launcher.frames"
 )
     .splitLines():
   if line.len == 0:

@@ -11,7 +11,7 @@ var catalogFrames: seq[ShellFrame]
 var requestFrame, prepared, presented: ShellFrame
 var expected: seq[byte]
 for line in readFile(
-  getEnv("SOPHIA_STACK_ROOT") / "protocol/golden/sophia-shell-reference.frames"
+  getEnv("SOPHIA_ROOT") / "protocol/golden/sophia-shell-reference.frames"
 )
     .splitLines():
   if line.len == 0:

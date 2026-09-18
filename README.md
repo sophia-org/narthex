@@ -1,7 +1,7 @@
 # Narthex
 
 Narthex is the reference shell for the
-[Sophia display server](https://github.com/sophia-org/sophia-stack). It's the
+[Sophia display server](https://github.com/sophia-org/sophia). It's the
 entryway around the workspace: it decides what appears in a shell surface and
 what a selection means, and it owns no pixels. As a reference implementation
 it stays deliberately small — the standing proof that a useful shell can live
@@ -19,7 +19,7 @@ focus policy belong to [Hagia](https://github.com/sophia-org/hagia), the
 reference window manager. The two are separate clients of the same display
 server and share no state. If you're deciding what to build and where it
 goes, start with Sophia's
-[Building on Sophia](https://github.com/sophia-org/sophia-stack/blob/master/docs/building-on-sophia.md).
+[Building on Sophia](https://github.com/sophia-org/sophia/blob/master/docs/building-on-sophia.md).
 
 ## Scope
 
@@ -53,7 +53,7 @@ into the proof record.
 Run the cross-repository conformance gate against a Sophia checkout:
 
 ```sh
-SOPHIA_STACK_ROOT=~/dev/sophia-stack nimble test
+SOPHIA_ROOT=~/dev/sophia-stack nimble test
 ```
 
 The gate checks the same valid, malformed, and fixed-record corpus used by

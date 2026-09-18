@@ -38,7 +38,7 @@ proc frameNamed(path, name: string): ShellFrame =
 
 suite "independent Sophia Shell v1 wire and reducer":
   test "shared golden frames round trip and malformed frames fail closed":
-    let sophiaRoot = getEnv("SOPHIA_STACK_ROOT")
+    let sophiaRoot = getEnv("SOPHIA_ROOT")
     require sophiaRoot.len > 0
     let valid = sophiaRoot / "protocol/golden/sophia-shell-v1.frames"
     let malformed = sophiaRoot / "protocol/golden/sophia-shell-v1-malformed.frames"
@@ -58,7 +58,7 @@ suite "independent Sophia Shell v1 wire and reducer":
         discard fields[3].decodeHex().decodeShellFrame()
 
   test "unlabeled descriptor consumes only its presence and redaction bytes":
-    let sophiaRoot = getEnv("SOPHIA_STACK_ROOT")
+    let sophiaRoot = getEnv("SOPHIA_ROOT")
     require sophiaRoot.len > 0
     let valid = sophiaRoot / "protocol/golden/sophia-shell-v1.frames"
     let snapshot = valid.frameNamed("descriptor_snapshot_unlabeled").decodeSnapshot()
@@ -67,7 +67,7 @@ suite "independent Sophia Shell v1 wire and reducer":
     check not snapshot.descriptors[0].labelRedacted
 
   test "presented activation is exact and consumed at most once":
-    let sophiaRoot = getEnv("SOPHIA_STACK_ROOT")
+    let sophiaRoot = getEnv("SOPHIA_ROOT")
     require sophiaRoot.len > 0
     let valid = sophiaRoot / "protocol/golden/sophia-shell-v1.frames"
     let snapshot = valid.frameNamed("descriptor_snapshot").decodeSnapshot()
@@ -87,7 +87,7 @@ suite "independent Sophia Shell v1 wire and reducer":
     check model.accept(stale) == ShellActivationDisposition.rejectedStale
 
   test "a reserving candidate encodes exactly the shared golden frame":
-    let sophiaRoot = getEnv("SOPHIA_STACK_ROOT")
+    let sophiaRoot = getEnv("SOPHIA_ROOT")
     require sophiaRoot.len > 0
     let valid = sophiaRoot / "protocol/golden/sophia-shell-v1.frames"
     var golden: string
@@ -109,7 +109,7 @@ suite "independent Sophia Shell v1 wire and reducer":
     check reserving.candidateFrame(transaction).encodeShellFrame() == golden.decodeHex()
 
   test "complete snapshot withdrawal clears visible shell state":
-    let sophiaRoot = getEnv("SOPHIA_STACK_ROOT")
+    let sophiaRoot = getEnv("SOPHIA_ROOT")
     require sophiaRoot.len > 0
     let valid = sophiaRoot / "protocol/golden/sophia-shell-v1.frames"
     let snapshot = valid.frameNamed("descriptor_snapshot").decodeSnapshot()
