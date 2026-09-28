@@ -6,11 +6,11 @@ this migration.
 
 The standalone C desktop SDK is vendored at
 `vendor/sophia-desktop-sdk`, revision
-`88347eb7b37816450863e4de582f1c01e80d446a`, from
+`74498734f314c0e9847fb01991e83eed35930833`, from
 `https://github.com/sophia-org/sophia-desktop-sdk-c`. Its signed commit object is
 preserved as `upstream.commit`; `manifest.json` binds the revision and every
 file in `source/` by SHA-256. The snapshot is byte-identical to Sophia's import
-at `8dd9783ac`. It contains 183 files.
+from the same signed SDK commit. It contains 183 files.
 
 Sophia accepted the descriptor contract at `3330ecf77`. The SDK carries its
 normative KDL and `spec/sophia-shell-descriptors.md`; this SDK revision remains
@@ -82,3 +82,7 @@ manifest and signed commit object match Sophia's verified import byte for byte.
 Evidence: `accepted-contract-{local,build,conformance}.log` in the same directory.
 This remains a development build with the fixed dependency inputs above; it
 does not update an installed component or establish physical acceptance.
+
+The follow-up pin `74498734` changes only contract prose, provenance and its
+digest list: it corrects the accepted native bounds in the main shell document.
+All library and test files are byte-identical to `88347eb7`, the tested revision.
