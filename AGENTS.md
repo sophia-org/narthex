@@ -5,9 +5,11 @@ before changing Narthex.
 
 ## Working Rules
 
-1. Keep Narthex standalone. Do not add Sophia, Wayland, or Hagia as a runtime
-   or build dependency. The value of this client is that it is an independent
-   implementation of the wire.
+1. Keep Narthex standalone. Do not add the Sophia server, Wayland, or Hagia as
+   a runtime or build dependency. Use the standalone Sophia C desktop SDK for
+   9P and shell-file codecs through thin Nim bindings. Keep shell policy here.
+   Bind the SDK to a signed revision in `vendor/sophia-desktop-sdk`; never read
+   an ambient sibling checkout or patch vendored source directly.
 2. Narthex is a shell client only. It owns descriptor sets, reservations, and
    activation handling. It does not own rendering, hit testing, physical input,
    window placement, focus policy, session launching, or process supervision.
