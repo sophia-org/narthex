@@ -19,13 +19,14 @@ the withheld facts, the design is wrong, not the boundary.
 Data is passive. Logic is active. They do not share a module. This is the
 foundational rule of this document, and every other rule depends on it.
 
-Narthex keeps three explicit territories:
+Narthex keeps four explicit territories:
 
 1. `src/types` defines passive data and nothing else. Every record, enum, wire
    layout, and bound lives here.
-2. `src/wire` owns frame encoding, decoding, validation, and the shell
-   candidate reducer.
-3. `src/narthex.nim` owns the socket lifecycle and the proof and serve modes.
+2. `src/sdk` binds the public C SDK, owns its session lifecycle, and copies
+   validated borrowed records into owned policy values. The SDK owns codecs.
+3. `src/policy` owns the candidate reducers and presentation state.
+4. `src/narthex.nim` dispatches the proof and serve modes.
 
 ## The Types Layer
 

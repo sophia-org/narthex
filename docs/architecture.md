@@ -92,21 +92,15 @@ indicators together, the way an integrated shell such as Noctalia bundles them.
 
 ### What Is Actually Implemented Today
 
-`sophia_shell_v1` revision 1 is six messages and one capability,
-`descriptor_switcher`. A shell sends an ordered list of window slots, each with
-a label of at most 128 bytes, up to sixteen descriptors, and one selected slot.
-Engine renders that list. There is no clock, tray, launcher, or arbitrary text.
+Narthex uses the development revision-8 descriptor profile over 9P2000.L.
+The standalone C SDK owns framing, validation, negotiation, object fetching and
+submission custody. Narthex supplies switcher ordering and reservations,
+persistent tab ordering, reference-sheet paging and application launcher policy.
+Engine renders these descriptors and decides when they are presented.
 
-Work-area reservation exists in Engine and in Narthex but is not yet in the
-checked-in protocol specification, and Sophia's `docs/configuration.md` records
-the remaining gap: the claim lives only for as long as the switcher is visible,
-and a panel that persists independently of it needs a second shell role.
-
-So a desktop author targeting the shell interface today is co-designing the
-next revision, not writing against a stable surface. The window-manager
-interface is the mature one: `sophia_wm_v1` revision 3 is frozen.
-Sophia's `docs/sophia-shell-v1-direction.md` carries the direction work,
-including a measured survey of what porting an existing full shell would cost.
+The pinned descriptor file proposal is in the SDK's `spec/proposed/` directory.
+Development conformance is distinct from acceptance of that contract or a
+published release. See [the migration evidence](desktop-sdk.md).
 
 ### The Rendering Split Is About Pixel Blindness
 
@@ -143,20 +137,15 @@ identified requester.
 
 ### Where This Client's Evidence Lives
 
-Narthex's own gate proves wire conformance: the shared golden and malformed
-corpora, the descriptor proof, and the work-area reservation proof. It does not
-and cannot prove physical behavior, because that requires a real console, DRM
-takeover, and Sophia's supervised session.
-
-That evidence lives in Sophia's tty4 gates, which build this repository from a
-clean signed commit and bind it into the proof record alongside Sophia and
-Hagia. Signed archives `0006` and `0007` are the switcher lifecycle and the
-work-area reservation respectively, both produced while this code was in-tree
-in Hagia.
+Narthex's local gate checks its SDK bindings and policy with native records.
+An explicit conformance gate uses prebuilt Sophia hosts for protected 9P
+exchanges and headless Engine decisions. Physical whole-desktop acceptance
+belongs in external desktop tooling. Signed archives `0006` and `0007` are
+historical IPC switcher and reservation evidence, produced before the split.
 
 ## What Narthex Owns
 
-Narthex owns shell surface policy over the `sophia_shell_v1` wire:
+Narthex owns shell surface policy over the descriptor file profile:
 
 - descriptor sets and their ordering;
 - work-area reservations;
@@ -183,9 +172,10 @@ state. A fresh connection epoch discards everything.
 
 ## Reference sheets
 
-Revision 3 adds a 256-entry shortcut catalog, separate from the 16-descriptor
+The file profile carries a 256-entry shortcut catalog, separate from the 16-descriptor
 switcher. `types/shell_reference.nim` owns passive records and bounds;
-`wire/shell_reference.nim` owns validation and the presentation reducer.
+`sdk/values.nim` copies SDK-validated values, and `policy/reference.nim` owns
+the presentation reducer.
 The entry point negotiates the capabilities and `config.nim` reads only the
 selected private KDL file. Only presented outcomes advance visible/page state.
 Candidate rows carry display strings and catalog slots, never app actions.

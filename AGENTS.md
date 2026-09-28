@@ -36,12 +36,15 @@ before changing Narthex.
 5. Protocol code should be plain enough to audit from offsets to semantic
    records. Validate counts, reserved fields, generations, and identities
    before exposing a complete value. Fail closed on malformed input.
-6. Run Nim builds and tests serially because they share Nim caches. The
-   cross-repository gate is:
+6. Keep Nim caches and build outputs private. The local gate is:
 
    ```sh
-   SOPHIA_ROOT=~/dev/sophia-stack nimble test
+   nimble test
    ```
+
+   `nimble conformance` additionally requires absolute prebuilt
+   `SOPHIA_DESCRIPTOR_HOST` and `SOPHIA_LAUNCHER_HOST` executables supporting
+   revision-8 descriptor files. Never build a sibling Sophia checkout here.
 
 7. Do not run Narthex inside a live Sophia session without explicit approval.
    Offline unit and local socket-conformance tests are safe.

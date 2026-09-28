@@ -1,84 +1,58 @@
-import std/[options, os, strutils, unittest]
+import std/[options, unittest]
+import types/[shell_v1, desktop_sdk]
+import sdk/[desktop_sdk, values]
+import policy/switcher
+import support/file_records
 
-import types/shell_v1
-import wire/shell_v1
+suite "descriptor file conversion and switcher policy":
+  test "native record round trips and rejects truncated or trailing data":
+    var rows: seq[byte]
+    var record = descriptors(rows)
+    var bytes = record.encoded()
+    var decoded: SfRecord
+    check sfDecode(addr bytes[0], bytes.len.csize_t, addr decoded) == 0
+    check decoded.encoded() == bytes
+    for length in 0 ..< bytes.len:
+      check sfDecode(addr bytes[0], length.csize_t, addr decoded) != 0
+    bytes.add(0)
+    check sfDecode(addr bytes[0], bytes.len.csize_t, addr decoded) != 0
+    record.value.descriptors.connectionEpoch += 1
+    expect ValueError:
+      discard record.snapshot()
 
-proc hexNibble(character: char): int =
-  case character
-  of '0' .. '9':
-    ord(character) - ord('0')
-  of 'a' .. 'f':
-    ord(character) - ord('a') + 10
-  else:
-    -1
-
-proc decodeHex(text: string): seq[byte] =
-  if text.len mod 2 != 0:
-    raise newException(ValueError, "odd hexadecimal input")
-  result = newSeq[byte](text.len div 2)
-  for index in 0 ..< result.len:
-    let high = text[index * 2].hexNibble()
-    let low = text[index * 2 + 1].hexNibble()
-    if high < 0 or low < 0:
-      raise newException(ValueError, "invalid hexadecimal input")
-    result[index] = byte((high shl 4) or low)
-
-proc corpusLines(path: string): seq[string] =
-  for line in readFile(path).splitLines():
-    let stripped = line.strip()
-    if stripped.len > 0 and not stripped.startsWith("#"):
-      result.add(stripped)
-
-proc frameNamed(path, name: string): ShellFrame =
-  for line in path.corpusLines():
-    let fields = line.split('|')
-    if fields[0] == name:
-      return fields[2].decodeHex().decodeShellFrame()
-  raise newException(ValueError, "missing shell corpus frame " & name)
-
-suite "independent Sophia Shell v1 wire and reducer":
-  test "shared golden frames round trip and malformed frames fail closed":
-    let sophiaRoot = getEnv("SOPHIA_ROOT")
-    require sophiaRoot.len > 0
-    let valid = sophiaRoot / "protocol/golden/sophia-shell-v1.frames"
-    let malformed = sophiaRoot / "protocol/golden/sophia-shell-v1-malformed.frames"
-    let validLines = valid.corpusLines()
-    let malformedLines = malformed.corpusLines()
-    check validLines.len == 10
-    check malformedLines.len == 16
-    for line in validLines:
-      let fields = line.split('|')
-      check fields.len == 3
-      let bytes = fields[2].decodeHex()
-      check bytes.decodeShellFrame().encodeShellFrame() == bytes
-    for line in malformedLines:
-      let fields = line.split('|')
-      check fields.len == 4
-      expect ShellProtocolError:
-        discard fields[3].decodeHex().decodeShellFrame()
-
-  test "unlabeled descriptor consumes only its presence and redaction bytes":
-    let sophiaRoot = getEnv("SOPHIA_ROOT")
-    require sophiaRoot.len > 0
-    let valid = sophiaRoot / "protocol/golden/sophia-shell-v1.frames"
-    let snapshot = valid.frameNamed("descriptor_snapshot_unlabeled").decodeSnapshot()
+  test "unlabeled descriptor remains absent and unredacted":
+    var rows: seq[byte]
+    var record = descriptors(rows, false)
+    let snapshot = record.snapshot()
     check snapshot.descriptors.len == 1
     check snapshot.descriptors[0].label.isNone
     check not snapshot.descriptors[0].labelRedacted
 
   test "presented activation is exact and consumed at most once":
-    let sophiaRoot = getEnv("SOPHIA_ROOT")
-    require sophiaRoot.len > 0
-    let valid = sophiaRoot / "protocol/golden/sophia-shell-v1.frames"
-    let snapshot = valid.frameNamed("descriptor_snapshot").decodeSnapshot()
+    var rows: seq[byte]
+    var record = descriptors(rows)
+    let snapshot = record.snapshot()
     var model = ShellModel(connectionEpoch: snapshot.connectionEpoch)
     model.reconcile(snapshot)
     let candidate = model.candidate(1, true)
     check candidate.visible
     check candidate.selected.get() == 2
     check candidate.entries.len == 1
-    model.rememberPresented(valid.frameNamed("candidate_outcome").decodeOutcome())
-    let activation = valid.frameNamed("activation").decodeActivation()
+    model.rememberPresented(
+      ShellCandidateOutcome(
+        connectionEpoch: 5,
+        candidateGeneration: 1,
+        presentationEpoch: 10,
+        kind: ShellCandidateOutcomeKind.presented,
+      )
+    )
+    let activation = ShellActivation(
+      connectionEpoch: 5,
+      candidateGeneration: 1,
+      presentationEpoch: 10,
+      activation: 1,
+      action: snapshot.descriptors[0].action,
+    )
     check model.accept(activation) == ShellActivationDisposition.consumed
     check model.accept(activation) == ShellActivationDisposition.rejectedStale
     var stale = activation
@@ -86,34 +60,32 @@ suite "independent Sophia Shell v1 wire and reducer":
     stale.presentationEpoch += 1
     check model.accept(stale) == ShellActivationDisposition.rejectedStale
 
-  test "a reserving candidate encodes exactly the shared golden frame":
-    let sophiaRoot = getEnv("SOPHIA_ROOT")
-    require sophiaRoot.len > 0
-    let valid = sophiaRoot / "protocol/golden/sophia-shell-v1.frames"
-    var golden: string
-    for line in valid.corpusLines():
-      let fields = line.split('|')
-      if fields[0] == "candidate_reserved":
-        golden = fields[2]
-    require golden.len > 0
-    let snapshot = valid.frameNamed("descriptor_snapshot").decodeSnapshot()
-    var model = ShellModel(connectionEpoch: snapshot.connectionEpoch)
-    model.reconcile(snapshot)
+  test "reserving candidate retains its native transaction and reservation":
+    var rows: seq[byte]
+    var record = descriptors(rows)
+    var model: ShellModel
+    model.reconcile(record.snapshot())
     let reserving = model.candidate(
       2,
       true,
       some(ShellReservation(edge: ShellReservationEdge.bottom, thicknessPx: 28)),
     )
-    check reserving.reservation.isSome
     let transaction = 0x0102030405060708'u64
-    check reserving.candidateFrame(transaction).encodeShellFrame() == golden.decodeHex()
+    var candidate = reserving.fileCandidate(transaction)
+    candidate.record.header = SfHeader(kind: 273, epoch: 5, submission: 1)
+    var bytes = candidate.record.encoded()
+    var decoded: SfRecord
+    check sfDecode(addr bytes[0], bytes.len.csize_t, addr decoded) == 0
+    check decoded.value.descriptorCandidate.transaction == transaction
+    check decoded.value.descriptorCandidate.reservationEdge == 2
+    check decoded.value.descriptorCandidate.reservationThickness == 28
+    check decoded.value.descriptorCandidate.entries[0].slot == 2
 
   test "complete snapshot withdrawal clears visible shell state":
-    let sophiaRoot = getEnv("SOPHIA_ROOT")
-    require sophiaRoot.len > 0
-    let valid = sophiaRoot / "protocol/golden/sophia-shell-v1.frames"
-    let snapshot = valid.frameNamed("descriptor_snapshot").decodeSnapshot()
-    var model = ShellModel(connectionEpoch: snapshot.connectionEpoch)
+    var rows: seq[byte]
+    var record = descriptors(rows)
+    let snapshot = record.snapshot()
+    var model: ShellModel
     model.reconcile(snapshot)
     var empty = snapshot
     empty.generation += 1

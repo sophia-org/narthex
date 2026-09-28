@@ -1,54 +1,13 @@
 import std/options
 
-## Passive wire and model records for Sophia's shell descriptor protocol.
-## Offsets, bounds, and capability bits are a fixed contract with Sophia's
-## corpus; encoding, validation, and the reducer live in
-## `src/sophia/shell_v1.nim`.
+## Owned descriptor policy values. Public file wire values live in desktop_sdk;
+## the SDK validates them before sdk/values copies them into these records.
 
 const
-  shellFrameHeaderLen* = 24
-  shellMaxPayloadLen* = 65536
   shellMaxDescriptors* = 16
-  shellMaxLabelBytes* = 128
-  shellDescriptorCapability* = 1'u64
-  shellReservationCapability* = 2'u64
   shellMaxReservationThickness* = 512'u16
 
 type
-  ShellMessageKind* {.pure.} = enum
-    clientHello = 96
-    serverWelcome = 97
-    descriptorSnapshot = 98
-    candidate = 99
-    candidateOutcome = 100
-    activation = 101
-    activationAck = 102
-    tabsBegin = 103
-    tabsGroup = 104
-    tabsEntry = 105
-    tabsEnd = 106
-    tabsCandidate = 107
-    shortcutsBegin = 108
-    shortcutsEntry = 109
-    shortcutsEnd = 110
-    referenceRequest = 111
-    referenceCandidate = 112
-    referenceOutcome = 113
-    applicationsBegin = 114
-    applicationsEntry = 115
-    applicationsEnd = 116
-    launcherRequest = 117
-    launcherCandidate = 118
-    launcherOutcome = 119
-    launcherActivation = 120
-    launcherActivationAck = 121
-    launchOutcome = 122
-
-  ShellFrame* = object
-    kind*: ShellMessageKind
-    transaction*: uint64
-    payload*: seq[byte]
-
   ShellActionRef* = object
     token*: uint64
     issuerEpoch*: uint64

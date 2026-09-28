@@ -24,16 +24,16 @@ goes, start with Sophia's
 ## Scope
 
 Narthex owns shell surface policy: descriptor sets, reservations, and
-activation handling over the `sophia_shell_v1` wire. It does not own
+activation handling over Sophia's descriptor files on 9P2000.L. It does not own
 rendering, hit testing, physical input, window placement, session launching, or
 process supervision. Sophia owns those.
 
 ## Provenance
 
 Split from Hagia at commit `07ad3e6338da61319c5058f7593949c8810b25da`, where this code was carried as the
-`hagia-shell` executable and its `shell_v1` codec. The wire implementation,
-reducer, and conformance corpus are unchanged by the split; only module paths,
-the binary name, and evidence prefixes differ.
+`hagia-shell` executable and its `shell_v1` codec. The socket codec has since
+been removed. Narthex now uses thin Nim bindings to the standalone C desktop
+SDK, pinned inside its signed source tree; its descriptor policies remain here.
 
 ## Evidence
 
@@ -42,24 +42,36 @@ shortcut admission, presentation, exact activation, broker-checked dispatch,
 withdrawal, and fresh-epoch reconnect in a separate protected process. Signed
 archive `0007` separately proves coherent work-area reservation and reconnect.
 Both were produced while this code was in-tree in Hagia as `hagia-shell`; the
-wire implementation and reducer are unchanged by the split.
+archives concern the former IPC implementation, not the current file transport.
 
-The gate below covers wire conformance only. Physical evidence on real hardware
-comes from Sophia's tty4 gates, which build this repository and bind its commit
-into the proof record.
+Current local checks cover SDK bindings and policy. Protected conformance uses
+Sophia's generic hosts. These checks do not establish physical display behavior;
+whole-desktop acceptance belongs in external desktop tooling.
 
 ## Verification
 
-Run the cross-repository conformance gate against a Sophia checkout:
+Run the local tests without a Sophia checkout:
 
 ```sh
-SOPHIA_ROOT=~/dev/sophia-stack nimble test
+nimble test
 ```
 
-The gate checks the same valid, malformed, and fixed-record corpus used by
-Sophia's generated codecs, then runs the independently compiled Narthex client
-through Sophia's protected shell transport for both the descriptor proof and
-the work-area reservation proof.
+The tests cover public C SDK layouts, native file records, malformed values,
+presentation and activation policy, reference paging, and launcher selection.
+The executable rejects the retired socket variable even when it is empty.
+
+For protected 9P conformance, supply prebuilt compatible Sophia hosts:
+
+```sh
+SOPHIA_DESCRIPTOR_HOST=/absolute/path/shell_descriptor_conformance_host \
+SOPHIA_LAUNCHER_HOST=/absolute/path/shell_launcher_conformance_host \
+nimble conformance
+```
+
+This checks all three client modes plus the launcher exchange. The hosts must
+implement the revision-8 descriptor file contract. No gate builds a sibling
+Sophia checkout. Nim binaries and caches are placed in a private temporary
+directory, removed at the end.
 
 `nimble verify` additionally checks formatting. `nimble layout` runs the
 data-oriented layout gate alone.
@@ -72,15 +84,18 @@ data-oriented layout gate alone.
 | `--bar-proof` | work-area reservation conformance, emits `narthex_bar_proof` |
 | `--serve` | live switcher loop driven by Sophia snapshots |
 
-`SOPHIA_SHELL_SOCKET` is required. `SOPHIA_SHELL_BAR_THICKNESS` enables the
+`SOPHIA_SHELL_9P_SOCKET` is required and must be absolute.
+`SOPHIA_SHELL_SOCKET` is refused. `SOPHIA_SHELL_BAR_THICKNESS` enables the
 bottom-edge reservation; unset or zero reserves nothing.
 
-[Persistent tab descriptors](docs/tabbed-layouts.md) use shell revision 2 in
-`--serve`; revision-1 proof and switcher messages remain supported.
+[Persistent tab descriptors](docs/tabbed-layouts.md) use the revision-8
+descriptor file profile in `--serve`, alongside switcher and reservation records.
+SIGTERM and SIGINT stop the client loop and release its SDK session; there is no
+reconnect, replay, or IPC fallback.
 
 ## Shortcut help
 
-The native `sophia_shell_v1` revision 3 reference sheet uses the active key and
+The descriptor reference sheet uses the active key and
 pointer bindings, with two columns and Page Up/Down or wheel paging. The next
 ordinary key dismisses and is consumed. Modifiers alone do not dismiss.
 `Super+?` is the default desktop toggle; help shows once per login unless the
@@ -102,7 +117,7 @@ See Sophia's `docs/shell-reference-sheets.md` for the independent wire contract.
 
 ## Application launcher
 
-Serve mode negotiates the optional revision-4 application catalog and launcher
+Serve mode requires the application catalog and descriptor launcher
 capabilities. Narthex ranks bounded application descriptors and returns selected
 slots; Engine owns text input, GPU rendering and hit testing. Only the session
 executes a presented selection after a matching activation acknowledgement.

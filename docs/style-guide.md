@@ -21,7 +21,9 @@ without rewriting files.
 
 Data stays passive and logic stays in procedures, and the two do not share a
 module. Every record, enum, wire layout, and bound belongs in `src/types`; the
-procedures that read and change it belong in `src/wire` or the entry point.
+procedures that read and change it belong in `src/sdk`, `src/policy`, or the
+entry point. SDK bindings own transport and validated value conversion; policy
+modules own ordering, selection and presentation state.
 
 This is not a filing preference. A record declared beside its consumer makes
 that consumer a mandatory dependency of everyone who only wanted the record, and

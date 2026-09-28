@@ -1,32 +1,25 @@
-import std/[os, strutils, unittest]
-import types/[shell_v1, shell_tabs]
-import wire/[shell_v1, shell_tabs]
+import std/unittest
+import types/[shell_v1, shell_tabs, desktop_sdk]
+import sdk/[desktop_sdk, values]
+import policy/tabs
+import support/file_records
 
-proc hexBytes(s: string): seq[byte] =
-  for i in countup(0, s.high, 2):
-    result.add(byte(parseHexInt(s[i .. i + 1])))
-
-suite "persistent tab descriptors":
-  test "independent decoder and candidate match Sophia's golden transfer":
-    var frames: seq[ShellFrame]
-    var expected: seq[byte]
-    for line in readFile(
-      getEnv("SOPHIA_ROOT") / "protocol/golden/sophia-shell-tabs.frames"
-    )
-        .splitLines():
-      if line.len == 0:
-        continue
-      let row = line.split('|')
-      if row[0] == "snapshot":
-        frames.add(row[1].hexBytes().decodeShellFrame())
-      else:
-        expected = row[1].hexBytes()
-    let snapshot = frames.decodeTabs()
+suite "persistent tab descriptors over files":
+  test "SDK rows become owned groups and settlement requires exact presentation":
+    var rows: seq[byte]
+    var record = tabs(rows)
+    let snapshot = record.tabSnapshot()
     check snapshot.groups.len == 1
     check snapshot.groups[0].entries.len == 2
     check snapshot.groups[0].selected == 1
     var model: ShellTabModel
-    check model.proposeTabs(snapshot, 7, 8).encodeShellFrame() == expected
+    var candidate = model.proposeTabs(snapshot, 7, 8)
+    candidate.bindRows()
+    candidate.record.header = SfHeader(kind: 275, epoch: 5, submission: 1)
+    discard candidate.record.encoded()
+    var slot: uint64
+    check sfTabOrderAt(addr candidate.record.value.tabsCandidate, 0, addr slot) == 0
+    check slot == 1
     model.rememberTabs(
       ShellCandidateOutcome(
         connectionEpoch: 5,
@@ -53,12 +46,18 @@ suite "persistent tab descriptors":
     activation.presentationEpoch = 10
     check model.acceptTab(activation) == ShellActivationDisposition.consumed
     check model.acceptTab(activation) == ShellActivationDisposition.rejectedStale
-    for i in 0 .. frames.high:
-      var changed = frames
-      changed.delete(i)
-      expect ShellProtocolError:
-        discard changed.decodeTabs()
-    var changed = frames
-    changed[1].payload[34] = 2
-    expect ShellProtocolError:
-      discard changed.decodeTabs()
+
+  test "incomplete rows and invalid focused flags fail before policy":
+    var rows: seq[byte]
+    var record = tabs(rows)
+    for length in 0 ..< rows.len:
+      record.value.tabs.rowsBytes = length.csize_t
+      expect ValueError:
+        discard record.tabSnapshot()
+    record.value.tabs.rowsBytes = rows.len.csize_t
+    var group =
+      SfTabGroup(groupSlot: 1, outputId: 1, selectedSlot: 1, focused: 2, entryCount: 2)
+    check sfTabGroupEncode(addr rows[0], addr group) != 0
+    record.value.tabs.entryCount = 1
+    expect ValueError:
+      discard record.tabSnapshot()

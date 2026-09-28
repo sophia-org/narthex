@@ -1,64 +1,68 @@
-import std/[os, strutils, tables, unittest]
-import types/[shell_v1, shell_launcher]
-import wire/[shell_v1, shell_launcher]
-proc hexBytes(s: string): seq[byte] =
-  for i in countup(0, s.high, 2):
-    result.add(byte(parseHexInt(s[i .. i + 1])))
+import std/unittest
+import types/[shell_launcher, desktop_sdk]
+import sdk/[desktop_sdk, values]
+import policy/launcher
+import support/file_records
 
-var catalogFrames: seq[ShellFrame]
-var records = initTable[string, ShellFrame]()
-for line in readFile(
-  getEnv("SOPHIA_ROOT") / "protocol/golden/sophia-shell-launcher.frames"
-)
-    .splitLines():
-  if line.len == 0:
-    continue
-  let row = line.split('|')
-  let frame = row[1].hexBytes().decodeShellFrame()
-  if row[0] == "catalog":
-    catalogFrames.add(frame)
-  else:
-    records[row[0]] = frame
 suite "application launcher":
-  test "independent wire matches corpus and launch requires presentation":
+  test "native candidate and activation acknowledgement require presentation":
+    var rows: seq[byte]
+    var record = applications(rows)
+    var requestRecord = launcherRequestRecord()
     var model: LauncherModel
-    model.reconcileApplications(catalogFrames.decodeApplications())
-    check model
-      .proposeLauncher(records["request"].decodeLauncherRequest(), 9, 1)
-      .encodeShellFrame() == records["candidate"].encodeShellFrame()
-    check model.acknowledgeLauncher(records["activation"]).payload.u16At(50) == 0
-    var rejected = records["started"]
-    rejected.payload[50] = 2
-    model.validateLaunchOutcome(rejected)
-    model.rememberLauncher(records["prepared"])
-    model.rememberLauncher(records["presented"])
-    check model.acknowledgeLauncher(records["activation"]).encodeShellFrame() ==
-      records["ack"].encodeShellFrame()
-    model.validateLaunchOutcome(records["started"])
-    check model.acknowledgeLauncher(records["activation"]).payload.u16At(50) == 0
+    model.reconcileApplications(record.applicationCatalog())
+    var candidate = model.proposeLauncher(requestRecord.launcherRequest(), 9, 1)
+    candidate.record.header = SfHeader(kind: 277, epoch: 5, submission: 1)
+    discard candidate.record.encoded()
+    check candidate.record.value.descriptorLauncherCandidate.selected == 1
+    check candidate.record.value.descriptorLauncherCandidate.entryCount == 3
+    let activation = launcherActivationRecord()
+    check model.acknowledgeLauncher(activation).record.value.descriptorLauncherActivationAck.consumed ==
+      0
+    model.validateLaunchOutcome(SfDescriptorLaunchOutcome(grant: activation, status: 2))
+    model.rememberLauncher(launcherOutcome(1))
+    model.rememberLauncher(launcherOutcome(2))
+    var ack = model.acknowledgeLauncher(activation)
+    check ack.record.value.descriptorLauncherActivationAck.consumed == 1
+    ack.record.header = SfHeader(kind: 278, epoch: 5, submission: 2)
+    discard ack.record.encoded()
+    model.validateLaunchOutcome(SfDescriptorLaunchOutcome(grant: activation, status: 1))
+    check model.acknowledgeLauncher(activation).record.value.descriptorLauncherActivationAck.consumed ==
+      0
+
   test "query matching and navigation belong to shell":
-    var model: LauncherModel
-    model.reconcileApplications(catalogFrames.decodeApplications())
-    var request = records["request"].decodeLauncherRequest()
+    var rows: seq[byte]
+    var record = applications(rows)
+    var requestRecord = launcherRequestRecord()
+    var request = requestRecord.launcherRequest()
     request.query = "application 3"
-    let candidate = model.proposeLauncher(request, 9, 1)
-    check candidate.payload.u16At(42) == 3
-    check candidate.payload.u16At(44) == 1
-  test "wrong tuple, duplicate slots and unsafe text are rejected":
-    var frames = catalogFrames
-    frames[2].payload[16] = 1
-    expect ShellProtocolError:
-      discard frames.decodeApplications()
     var model: LauncherModel
-    model.reconcileApplications(catalogFrames.decodeApplications())
-    discard model.proposeLauncher(records["request"].decodeLauncherRequest(), 9, 1)
-    var wrong = records["presented"]
-    wrong.payload[16] = 10
-    expect ShellProtocolError:
+    model.reconcileApplications(record.applicationCatalog())
+    let candidate = model.proposeLauncher(request, 9, 1)
+    check candidate.record.value.descriptorLauncherCandidate.selected == 3
+    check candidate.record.value.descriptorLauncherCandidate.entryCount == 1
+
+  test "wrong tuple, duplicate slots and unsafe text are rejected":
+    var rows: seq[byte]
+    var record = applications(rows)
+    copyMem(addr rows[656], addr rows[0], 656)
+    expect ValueError:
+      discard record.applicationCatalog()
+    record = applications(rows)
+    var model: LauncherModel
+    model.reconcileApplications(record.applicationCatalog())
+    var requestRecord = launcherRequestRecord()
+    discard model.proposeLauncher(requestRecord.launcherRequest(), 9, 1)
+    var wrong = launcherOutcome(2)
+    wrong.requestGeneration += 1
+    expect ValueError:
       model.rememberLauncher(wrong)
-    expect ShellProtocolError:
-      model.rememberLauncher(records["presented"])
-    var request = records["request"]
-    request.payload.add(0)
-    expect ShellProtocolError:
-      discard request.decodeLauncherRequest()
+    expect ValueError:
+      model.rememberLauncher(launcherOutcome(2))
+    var bytes = requestRecord.encoded()
+    bytes.add(0)
+    var decoded: SfRecord
+    check sfDecode(addr bytes[0], bytes.len.csize_t, addr decoded) != 0
+    requestRecord.value.descriptorLauncherRequest.query = "bad\nquery".borrowedText()
+    expect ValueError:
+      discard requestRecord.launcherRequest()

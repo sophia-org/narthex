@@ -1,102 +1,13 @@
-import std/[net, options, os, strutils]
-
-import types/shell_v1
-import wire/[shell_v1, shell_tabs]
-import types/[shell_tabs, shell_reference]
-import wire/shell_reference
-import types/shell_launcher
-import wire/shell_launcher
+import std/[options, os, strutils]
+import
+  types/
+    [shell_v1, shell_tabs, shell_reference, shell_launcher, shell_files, desktop_sdk]
+import sdk/[file_session, values]
+import policy/[switcher, tabs, reference, launcher]
 import config
-
-type ShellSocketClosedError = object of CatchableError
 
 proc fail(message: string) {.noreturn.} =
   raise newException(ValueError, message)
-
-proc toBytes(data: string): seq[byte] =
-  result = newSeq[byte](data.len)
-  for index, value in data:
-    result[index] = byte(value)
-
-proc toBinaryString(data: openArray[byte]): string =
-  result = newString(data.len)
-  for index, value in data:
-    result[index] = char(value)
-
-proc receiveExact(socket: Socket, length: int): seq[byte] =
-  while result.len < length:
-    let part = socket.recv(length - result.len)
-    if part.len == 0:
-      raise newException(ShellSocketClosedError, "shell socket closed during a frame")
-    result.add(part.toBytes())
-
-proc receiveFrame(socket: Socket): ShellFrame =
-  let header = socket.receiveExact(shellFrameHeaderLen)
-  let payloadLength = int(header.u32At(16))
-  if payloadLength > shellMaxPayloadLen:
-    fail("shell payload is excessive")
-  var bytes = header
-  bytes.add(socket.receiveExact(payloadLength))
-  bytes.decodeShellFrame()
-
-proc sendFrame(socket: Socket, frame: ShellFrame) =
-  socket.send(frame.encodeShellFrame().toBinaryString())
-
-proc connect(path: string): Socket =
-  for _ in 0 ..< 200:
-    result = newSocket(AF_UNIX, SOCK_STREAM, IPPROTO_IP)
-    try:
-      result.connectUnix(path)
-      return
-    except OSError:
-      result.close()
-      sleep(10)
-  fail("Sophia shell socket did not become ready")
-
-proc runProof(socketPath: string) =
-  let socket = socketPath.connect()
-  socket.sendFrame(clientHelloFrame())
-  let connectionEpoch = socket.receiveFrame().validateWelcome()
-  var model = ShellModel(connectionEpoch: connectionEpoch)
-
-  let firstFrame = socket.receiveFrame()
-  let first = firstFrame.decodeSnapshot()
-  model.reconcile(first)
-  socket.sendFrame(model.candidate(1, true).candidateFrame(firstFrame.transaction))
-  let prepared = socket.receiveFrame().decodeOutcome()
-  if prepared.kind != ShellCandidateOutcomeKind.prepared:
-    fail("Sophia did not prepare the shell candidate")
-  let presented = socket.receiveFrame().decodeOutcome()
-  model.rememberPresented(presented)
-
-  let activationFrame = socket.receiveFrame()
-  let activation = activationFrame.decodeActivation()
-  let disposition = model.accept(activation)
-  socket.sendFrame(
-    activationAckFrame(
-      model.connectionEpoch, activation.activation, activationFrame.transaction,
-      disposition,
-    )
-  )
-  if disposition != ShellActivationDisposition.consumed:
-    fail("Sophia delivered a stale shell activation")
-
-  let withdrawalFrame = socket.receiveFrame()
-  let withdrawalSnapshot = withdrawalFrame.decodeSnapshot()
-  model.reconcile(withdrawalSnapshot)
-  socket.sendFrame(
-    model.candidate(2, false).candidateFrame(withdrawalFrame.transaction)
-  )
-  let withdrawalPrepared = socket.receiveFrame().decodeOutcome()
-  if withdrawalPrepared.kind != ShellCandidateOutcomeKind.prepared:
-    fail("Sophia did not prepare the shell withdrawal")
-  let withdrawn = socket.receiveFrame().decodeOutcome()
-  if withdrawn.kind != ShellCandidateOutcomeKind.presented:
-    fail("Sophia did not present the shell withdrawal")
-  stdout.writeLine(
-    "narthex_proof schema=1 status=complete descriptors=" & $first.descriptors.len &
-      " activations=1 withdrawn=true"
-  )
 
 ## The bar strip is a bounded status zone the shell claims work area for.
 ## Its thickness comes from the session so the operator, not the shell, decides
@@ -119,173 +30,136 @@ proc barReservation(): Option[ShellReservation] =
     ShellReservation(edge: ShellReservationEdge.bottom, thicknessPx: uint16(thickness))
   )
 
-## Reserve, withdraw, and reconnect at a fresh epoch.
-##
-## The withdrawal carries no reservation, which is how the protocol expresses
-## releasing a claim: Engine's coordinator commits the absence through the same
-## bundle path that committed the claim, so there is no separate release
-## message that could be lost on its own.
-proc runBarProof(socketPath: string) =
-  let socket = socketPath.connect()
-  socket.sendFrame(clientHelloFrame())
-  let connectionEpoch = socket.receiveFrame().validateWelcome()
-  var model = ShellModel(connectionEpoch: connectionEpoch)
-  let reservation = barReservation()
-  if reservation.isNone:
+proc runProof(socketPath: string, bar: bool) =
+  let owner = openSession(socketPath, if bar: 3'u64 else: 1'u64)
+  defer:
+    owner.close()
+  let deadline = nowMillis() + 10_000
+  var model = ShellModel(connectionEpoch: owner.epoch)
+  let reservation =
+    if bar:
+      barReservation()
+    else:
+      none(ShellReservation)
+  if bar and reservation.isNone:
     fail("narthex: the bar proof requires SOPHIA_SHELL_BAR_THICKNESS")
-
-  let firstFrame = socket.receiveFrame()
-  let first = firstFrame.decodeSnapshot()
+  var firstRecord = owner.nextRecord(deadline)
+  let first = firstRecord.snapshot()
   model.reconcile(first)
-  socket.sendFrame(
-    model.candidate(1, true, reservation).candidateFrame(firstFrame.transaction)
-  )
-  if socket.receiveFrame().decodeOutcome().kind != ShellCandidateOutcomeKind.prepared:
-    fail("Sophia did not prepare the reserving bar candidate")
-  let presented = socket.receiveFrame().decodeOutcome()
-  if presented.kind != ShellCandidateOutcomeKind.presented:
-    fail("Sophia did not present the reserving bar candidate")
-  model.rememberPresented(presented)
-
-  let withdrawalFrame = socket.receiveFrame()
-  model.reconcile(withdrawalFrame.decodeSnapshot())
-  socket.sendFrame(
-    model.candidate(2, false).candidateFrame(withdrawalFrame.transaction)
-  )
-  if socket.receiveFrame().decodeOutcome().kind != ShellCandidateOutcomeKind.prepared:
-    fail("Sophia did not prepare the bar withdrawal")
-  if socket.receiveFrame().decodeOutcome().kind != ShellCandidateOutcomeKind.presented:
-    fail("Sophia did not present the bar withdrawal")
-  stdout.writeLine(
-    "narthex_bar_proof schema=1 status=complete edge=bottom thickness=" &
-      $reservation.get().thicknessPx & " withdrawn=true"
-  )
+  var proposal = model.candidate(1, true, reservation).fileCandidate(
+      firstRecord.value.descriptors.transaction
+    )
+  owner.submit(proposal)
+  var event = owner.nextRecord(deadline)
+  if event.candidateOutcome().kind != ShellCandidateOutcomeKind.prepared:
+    fail("Sophia did not prepare the shell candidate")
+  event = owner.nextRecord(deadline)
+  model.rememberPresented(event.candidateOutcome())
+  if not bar:
+    event = owner.nextRecord(deadline)
+    let activation = event.descriptorActivation()
+    let disposition = model.accept(activation)
+    var ack = activationAck(
+      model.connectionEpoch, activation.activation,
+      event.value.descriptorActivation.transaction, disposition,
+    )
+    owner.submit(ack)
+    if disposition != ShellActivationDisposition.consumed:
+      fail("Sophia delivered a stale shell activation")
+  event = owner.nextRecord(deadline)
+  model.reconcile(event.snapshot())
+  proposal =
+    model.candidate(2, false).fileCandidate(event.value.descriptors.transaction)
+  owner.submit(proposal)
+  event = owner.nextRecord(deadline)
+  if event.candidateOutcome().kind != ShellCandidateOutcomeKind.prepared:
+    fail("Sophia did not prepare the shell withdrawal")
+  event = owner.nextRecord(deadline)
+  if event.candidateOutcome().kind != ShellCandidateOutcomeKind.presented:
+    fail("Sophia did not present the shell withdrawal")
+  owner.settle()
+  if bar:
+    stdout.writeLine(
+      "narthex_bar_proof schema=1 status=complete edge=bottom thickness=" &
+        $reservation.get().thicknessPx & " withdrawn=true wire=9p"
+    )
+  else:
+    stdout.writeLine(
+      "narthex_proof schema=1 status=complete descriptors=" & $first.descriptors.len &
+        " activations=1 withdrawn=true wire=9p"
+    )
 
 proc runServer(socketPath: string) =
-  let socket = socketPath.connect()
+  # Descriptor, tabs, shortcut/reference, application/launcher; no content grant.
+  let owner = openSession(socketPath, 125)
   defer:
-    socket.close()
-  socket.sendFrame(clientHelloFrame(tabs = true, reference = true, launcher = true))
-  let welcome = socket.receiveFrame()
-  let connectionEpoch = welcome.validateWelcome()
-  let tabsEnabled =
-    welcome.payload.u16At(0) >= 2 and
-    (welcome.payload.u64At(12) and shellTabCapability) != 0
-  var model = ShellModel(connectionEpoch: connectionEpoch)
-  let referenceEnabled =
-    welcome.payload.u16At(0) >= 3 and
-    (welcome.payload.u64At(12) and referenceCapabilities) == referenceCapabilities
+    owner.close()
+  var model = ShellModel(connectionEpoch: owner.epoch)
   var reference = ReferenceModel(skipAtStartup: skipHelpAtStartup())
-  let launcherEnabled =
-    (welcome.payload.u64At(12) and launcherCapabilities) == launcherCapabilities
   var launcher: LauncherModel
-  var applicationFrames: seq[ShellFrame]
   var tabs: ShellTabModel
   var candidateGeneration = 0'u64
   var showNext = true
   let reservation = barReservation()
-  stdout.writeLine("narthex schema=2 status=ready connection_epoch=" & $connectionEpoch)
+  stdout.writeLine(
+    "narthex schema=2 status=ready connection_epoch=" & $owner.epoch &
+      " wire=9p revision=8"
+  )
   while true:
-    let frame = socket.receiveFrame()
-    case frame.kind
-    of ShellMessageKind.descriptorSnapshot:
-      model.reconcile(frame.decodeSnapshot())
+    var record = owner.nextRecord()
+    case record.header.kind
+    of 5, 6, 48, 50:
       if candidateGeneration == high(uint64):
         fail("candidate generation exhausted")
       inc candidateGeneration
-      socket.sendFrame(
-        model.candidate(candidateGeneration, showNext, reservation).candidateFrame(
-          frame.transaction
+      var proposal: ShellFileCandidate
+      case record.header.kind
+      of 5:
+        model.reconcile(record.snapshot())
+        proposal = model
+          .candidate(candidateGeneration, showNext, reservation)
+          .fileCandidate(record.value.descriptors.transaction)
+      of 6:
+        let snapshot = record.tabSnapshot()
+        if snapshot.connectionEpoch != owner.epoch:
+          fail("stale tab epoch")
+        proposal =
+          tabs.proposeTabs(snapshot, candidateGeneration, record.value.tabs.transaction)
+      of 48:
+        proposal = reference.proposeReference(
+          record.referenceRequest(),
+          candidateGeneration,
+          record.value.referenceRequest.transaction,
         )
-      )
-    of ShellMessageKind.applicationsBegin:
-      if not launcherEnabled or applicationFrames.len != 0:
-        fail("unnegotiated or overlapping application catalog")
-      applicationFrames = @[frame]
-    of ShellMessageKind.applicationsEntry, ShellMessageKind.applicationsEnd:
-      if applicationFrames.len == 0 or applicationFrames.len >= maxApplications + 2:
-        fail("application catalog overflow")
-      applicationFrames.add(frame)
-      if frame.kind == ShellMessageKind.applicationsEnd:
-        let catalog = applicationFrames.decodeApplications()
-        if catalog.epoch != connectionEpoch:
-          fail("stale application catalog")
-        launcher.reconcileApplications(catalog)
-        applicationFrames.setLen(0)
-    of ShellMessageKind.launcherRequest:
-      if not launcherEnabled or candidateGeneration == high(uint64):
-        fail("invalid launcher request")
-      inc candidateGeneration
-      socket.sendFrame(
-        launcher.proposeLauncher(
-          frame.decodeLauncherRequest(), candidateGeneration, frame.transaction
+      of 50:
+        proposal = launcher.proposeLauncher(
+          record.launcherRequest(),
+          candidateGeneration,
+          record.value.descriptorLauncherRequest.request.transaction,
         )
-      )
-    of ShellMessageKind.launcherOutcome:
-      launcher.rememberLauncher(frame)
-    of ShellMessageKind.launcherActivation:
-      socket.sendFrame(launcher.acknowledgeLauncher(frame))
-    of ShellMessageKind.launchOutcome:
-      launcher.validateLaunchOutcome(frame)
-    of ShellMessageKind.shortcutsBegin:
-      if not referenceEnabled:
-        fail("unnegotiated shortcut catalog")
-      var frames = @[frame]
-      while frames[^1].kind != ShellMessageKind.shortcutsEnd:
-        if frames.len >= maxShortcuts + 2:
-          fail("shortcut catalog overflow")
-        frames.add(socket.receiveFrame())
-      let catalog = frames.decodeShortcuts()
-      if catalog.epoch != connectionEpoch:
+      else:
+        discard
+      owner.submit(proposal)
+    of 3:
+      let catalog = record.applicationCatalog()
+      if catalog.epoch != owner.epoch:
+        fail("stale application catalog")
+      launcher.reconcileApplications(catalog)
+    of 7:
+      let catalog = record.shortcutCatalog()
+      if catalog.epoch != owner.epoch:
         fail("stale shortcut epoch")
       reference.reconcile(catalog)
-    of ShellMessageKind.referenceRequest:
-      if not referenceEnabled:
-        fail("unnegotiated reference request")
-      if candidateGeneration == high(uint64):
-        fail("candidate generation exhausted")
-      inc candidateGeneration
-      socket.sendFrame(
-        reference.proposeReference(
-          frame.decodeReferenceRequest(), candidateGeneration, frame.transaction
-        )
-      )
-    of ShellMessageKind.referenceOutcome:
-      if not referenceEnabled:
-        fail("unnegotiated reference outcome")
-      reference.rememberReference(frame)
-    of ShellMessageKind.tabsBegin:
-      if not tabsEnabled:
-        fail("unnegotiated tab transfer")
-      var frames = @[frame]
-      while frames[^1].kind != ShellMessageKind.tabsEnd:
-        if frames.len >= 2 + maxShellTabGroups + maxShellTabEntries:
-          fail("tab transfer overflow")
-        frames.add(socket.receiveFrame())
-      let snapshot = frames.decodeTabs()
-      if snapshot.connectionEpoch != connectionEpoch:
-        fail("stale tab epoch")
-      if candidateGeneration == high(uint64):
-        fail("candidate generation exhausted")
-      inc candidateGeneration
-      socket.sendFrame(
-        tabs.proposeTabs(snapshot, candidateGeneration, frame.transaction)
-      )
-    of ShellMessageKind.candidateOutcome:
-      let outcome = frame.decodeOutcome()
+    of 46:
+      let outcome = record.candidateOutcome()
       if outcome.candidateGeneration == tabs.pendingGeneration:
         tabs.rememberTabs(outcome)
       elif outcome.kind == ShellCandidateOutcomeKind.presented:
         model.rememberPresented(outcome)
         if not showNext:
           showNext = true
-      elif outcome.kind notin {
-        ShellCandidateOutcomeKind.prepared, ShellCandidateOutcomeKind.rejected,
-        ShellCandidateOutcomeKind.superseded,
-      }:
-        fail("invalid switcher outcome")
-    of ShellMessageKind.activation:
-      let activation = frame.decodeActivation()
+    of 47:
+      let activation = record.descriptorActivation()
       var disposition: ShellActivationDisposition
       if activation.candidateGeneration == tabs.presentedGeneration:
         disposition = tabs.acceptTab(activation)
@@ -293,30 +167,43 @@ proc runServer(socketPath: string) =
         disposition = model.accept(activation)
         if disposition == ShellActivationDisposition.consumed:
           showNext = false
-      socket.sendFrame(
-        activationAckFrame(
-          connectionEpoch, activation.activation, frame.transaction, disposition
-        )
+      var ack = activationAck(
+        owner.epoch, activation.activation,
+        record.value.descriptorActivation.transaction, disposition,
       )
+      owner.submit(ack)
+    of 49:
+      reference.rememberReference(record.value.referenceOutcome)
+    of 51:
+      launcher.rememberLauncher(record.value.descriptorLauncherOutcome)
+    of 52:
+      var ack = launcher.acknowledgeLauncher(record.value.descriptorLauncherActivation)
+      owner.submit(ack)
+    of 53:
+      launcher.validateLaunchOutcome(record.value.descriptorLaunchOutcome)
     else:
-      fail("unexpected shell message")
+      fail("unexpected descriptor file record: " & $record.header.kind)
 
 proc run(arguments: seq[string]) =
-  let socketPath = getEnv("SOPHIA_SHELL_SOCKET")
-  if socketPath.len == 0:
-    fail("narthex: SOPHIA_SHELL_SOCKET is required")
-  if arguments == @["--proof"]:
-    socketPath.runProof()
-  elif arguments == @["--bar-proof"]:
-    socketPath.runBarProof()
-  elif arguments == @["--serve"]:
+  if existsEnv("SOPHIA_SHELL_SOCKET"):
+    fail("narthex: retired SOPHIA_SHELL_SOCKET is refused")
+  let socketPath = getEnv("SOPHIA_SHELL_9P_SOCKET")
+  if not socketPath.isAbsolute():
+    fail("narthex: SOPHIA_SHELL_9P_SOCKET must be an absolute path")
+  if arguments notin [@["--proof"], @["--bar-proof"], @["--serve"]]:
+    fail("narthex: expected --proof, --bar-proof, or --serve")
+  if installTermination() != 0:
+    fail("narthex: cannot install termination handlers")
+  if arguments == @["--serve"]:
     socketPath.runServer()
   else:
-    fail("narthex: expected --proof, --bar-proof, or --serve")
+    socketPath.runProof(arguments == @["--bar-proof"])
 
 try:
   run(commandLineParams())
-except ShellSocketClosedError as error:
+except ShellStoppedError:
+  quit(0)
+except ShellClosedError as error:
   if commandLineParams() == @["--serve"]:
     quit(0)
   stderr.writeLine("narthex: " & error.msg)

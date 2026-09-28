@@ -11,11 +11,15 @@ requires "nimkdl >= 2.1.0"
 task layout, "Check the data-oriented layout of the source tree":
   exec "sh tools/check_data_oriented_layout.sh"
 
-task test, "Run the independent Sophia shell descriptor conformance suite":
+task test, "Run the local SDK binding and shell policy tests":
   exec "sh tools/check_data_oriented_layout.sh"
   exec "sh tools/check_narthex.sh"
 
-task verify, "Check formatting and run the independent conformance suite":
+task conformance, "Run local tests and explicit prebuilt 9P conformance hosts":
+  exec "sh tools/check_data_oriented_layout.sh"
+  exec "sh tools/check_narthex.sh --conformance"
+
+task verify, "Check formatting and run the local SDK and policy tests":
   exec "nph --check src tests narthex.nimble"
   exec "sh tools/check_data_oriented_layout.sh"
   exec "sh tools/check_narthex.sh"

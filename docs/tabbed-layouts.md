@@ -1,9 +1,9 @@
 # Persistent tab descriptors
 
-`--serve` negotiates `sophia_shell_v1` revision 2 and capability `tab_groups`.
-The event loop multiplexes persistent tab transfers, switcher snapshots,
-candidate outcomes, and activation acknowledgements on the existing protected
-shell connection. Proof modes retain the revision-1 handshake.
+`--serve` negotiates the revision-8 descriptor file profile and capability
+`tab_groups`. The SDK fetches complete tab objects and dispatches switcher
+snapshots, candidate outcomes and activation acknowledgements over 9P2000.L.
+Proof modes use the same file transport with their smaller capability sets.
 
 Tabs use recipient-local group and occurrence slots, opaque output handles,
 selected slots, focus, sanitized descriptors, and opaque actions. Narthex never

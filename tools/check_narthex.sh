@@ -1,29 +1,40 @@
 #!/bin/sh
+# Local policy/SDK tests require no Sophia source. Optional protected conformance
+# uses explicit prebuilt hosts; this launcher never builds a server checkout.
 set -eu
-
-if [ "${SOPHIA_ROOT:-}" = "" ]; then
-    echo "SOPHIA_ROOT must name a Sophia checkout" >&2
-    exit 2
+case "${1:-}" in
+"") conformance=false ;;
+--conformance) conformance=true ;;
+*) echo "usage: check_narthex.sh [--conformance]" >&2; exit 2 ;;
+esac
+if "$conformance"; then
+    for host in "${SOPHIA_DESCRIPTOR_HOST:-}" "${SOPHIA_LAUNCHER_HOST:-}"; do
+        case "$host" in
+        /*) [ -f "$host" ] && [ -x "$host" ] || exit 2 ;;
+        *) echo "conformance requires absolute executable SOPHIA_DESCRIPTOR_HOST and SOPHIA_LAUNCHER_HOST" >&2; exit 2 ;;
+        esac
+    done
 fi
-
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 build_dir=$(mktemp -d)
 trap 'rm -rf "$build_dir"' EXIT HUP INT TERM
 cd "$root"
-nim c -r --hints:off --path:src --nimcache:tests/nimcache \
-    -o:"$build_dir/tshell-v1" tests/tshell_v1.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache -o:"$build_dir/tshell-tabs" tests/tshell_tabs.nim
-nim c -r --hints:off --path:src --nimcache:tests/nimcache -o:"$build_dir/tshell-reference" tests/tshell_reference.nim
-nim c -r --hints:off --path:src --nimcache:"$build_dir/nimcache-launcher" -o:"$build_dir/tshell-launcher" tests/tshell_launcher.nim
-nim c --hints:off --path:src --nimcache:"$build_dir/nimcache" \
+for unit in tdesktop_sdk tshell_v1 tshell_tabs tshell_reference tshell_launcher; do
+    nim c -r --hints:off --parallelBuild:2 --path:src \
+        --nimcache:"$build_dir/cache-$unit" -o:"$build_dir/$unit" "tests/$unit.nim"
+done
+nim c --hints:off --parallelBuild:2 --path:src --nimcache:"$build_dir/cache-client" \
     -o:"$build_dir/narthex" src/narthex.nim
-cd "$SOPHIA_ROOT"
-cargo run --offline -q -p sophia-runtime --example shell_descriptor_conformance_host -- \
-    "$build_dir/narthex" --proof
-cargo run --offline -q -p sophia-runtime --example shell_descriptor_conformance_host -- \
-    "$build_dir/narthex" --bar-proof
-
-cargo run --offline -q -p sophia-runtime --example shell_descriptor_conformance_host -- \
-    "$build_dir/narthex" --serve
-
-cargo run --offline -q -p sophia-runtime --example shell_launcher_conformance_host -- "$build_dir/narthex"
+# Presence of the retired variable is an error, including an empty value.
+if env SOPHIA_SHELL_SOCKET= SOPHIA_SHELL_9P_SOCKET=/nonexistent \
+    "$build_dir/narthex" --serve >"$build_dir/retired.log" 2>&1; then
+    echo "retired socket was accepted" >&2
+    exit 1
+fi
+grep -q "SOPHIA_SHELL_SOCKET" "$build_dir/retired.log"
+if "$conformance"; then
+    for mode in --proof --bar-proof --serve; do
+        timeout -s KILL 60 "$SOPHIA_DESCRIPTOR_HOST" "$build_dir/narthex" "$mode"
+    done
+    timeout -s KILL 60 "$SOPHIA_LAUNCHER_HOST" "$build_dir/narthex"
+fi
