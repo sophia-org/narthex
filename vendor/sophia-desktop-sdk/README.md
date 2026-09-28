@@ -7,8 +7,8 @@ that commit is a separate signature review; the manifest is an integrity check.
 
 Narthex's thin bindings compile only the nine_p, shell_files and shell_session
 modules from this snapshot. They do not read a sibling SDK or Sophia checkout.
-Descriptor-file support at this pin is a development contract under
-`source/spec/proposed/`; it is not a published stable descriptor API yet.
+Descriptor-file support follows the accepted contract in
+`source/spec/sophia-shell-descriptors.md`. This SDK revision is not yet published.
 
 Make SDK changes in sophia-org/sophia-desktop-sdk-c, test and sign the commit,
 then replace this archive and its manifest together. Never patch `source/`

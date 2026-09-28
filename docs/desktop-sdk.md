@@ -6,14 +6,15 @@ this migration.
 
 The standalone C desktop SDK is vendored at
 `vendor/sophia-desktop-sdk`, revision
-`2b00a7766c856b36e3604d68087b90f747bc1296`, from
+`88347eb7b37816450863e4de582f1c01e80d446a`, from
 `https://github.com/sophia-org/sophia-desktop-sdk-c`. Its signed commit object is
 preserved as `upstream.commit`; `manifest.json` binds the revision and every
 file in `source/` by SHA-256. The snapshot is byte-identical to Sophia's import
-at `40b88fc5ed51aea865d7bb4158c866aa403993f9`. It contains 185 files.
+at `8dd9783ac`. It contains 183 files.
 
-The descriptor record contract under the SDK's `spec/proposed/` remains a
-development proposal. Vendoring it does not accept or publish that contract.
+Sophia accepted the descriptor contract at `3330ecf77`. The SDK carries its
+normative KDL and `spec/sophia-shell-descriptors.md`; this SDK revision remains
+unpublished.
 The SDK's codecs and session have independent production-export and protected
 Session CPU-presentation evidence in Sophia's IPC retirement branch, most
 recently `6e7ddf8ea742e267d250fe86ab708a047aedda31`.
@@ -74,3 +75,10 @@ directories were checked against the prior reviewed Narthex package inventory;
 this is not a newly reviewed release build. Nim 2.2.12 emits const-qualifier
 warnings in its generated C (including its standard library); the C binding
 header separately passes C99 `-Wall -Wextra -Wpedantic -Werror`.
+
+After pinning the accepted contract at C SDK `88347eb7`, all 20 local tests and
+the four protected host modes pass again. The copied snapshot's 183 files,
+manifest and signed commit object match Sophia's verified import byte for byte.
+Evidence: `accepted-contract-{local,build,conformance}.log` in the same directory.
+This remains a development build with the fixed dependency inputs above; it
+does not update an installed component or establish physical acceptance.

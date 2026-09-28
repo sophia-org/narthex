@@ -92,15 +92,15 @@ indicators together, the way an integrated shell such as Noctalia bundles them.
 
 ### What Is Actually Implemented Today
 
-Narthex uses the development revision-8 descriptor profile over 9P2000.L.
+Narthex uses the accepted revision-8 descriptor profile over 9P2000.L.
 The standalone C SDK owns framing, validation, negotiation, object fetching and
 submission custody. Narthex supplies switcher ordering and reservations,
 persistent tab ordering, reference-sheet paging and application launcher policy.
 Engine renders these descriptors and decides when they are presented.
 
-The pinned descriptor file proposal is in the SDK's `spec/proposed/` directory.
-Development conformance is distinct from acceptance of that contract or a
-published release. See [the migration evidence](desktop-sdk.md).
+The pinned descriptor contract is in the SDK's `spec/sophia-shell-descriptors.md`
+and `spec/sophia-shell-files-v1.kdl`. Development conformance does not
+establish a published release. See [the migration evidence](desktop-sdk.md).
 
 ### The Rendering Split Is About Pixel Blindness
 
