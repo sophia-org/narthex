@@ -20,10 +20,10 @@ build_dir=$(mktemp -d)
 trap 'rm -rf "$build_dir"' EXIT HUP INT TERM
 cd "$root"
 for unit in tdesktop_sdk tshell_v1 tshell_tabs tshell_reference tshell_launcher; do
-    nim c -r --hints:off --parallelBuild:2 --path:src \
+    nim c -r --hints:off --path:src \
         --nimcache:"$build_dir/cache-$unit" -o:"$build_dir/$unit" "tests/$unit.nim"
 done
-nim c --hints:off --parallelBuild:2 --path:src --nimcache:"$build_dir/cache-client" \
+nim c --hints:off --path:src --nimcache:"$build_dir/cache-client" \
     -o:"$build_dir/narthex" src/narthex.nim
 # Presence of the retired variable is an error, including an empty value.
 if env SOPHIA_SHELL_SOCKET= SOPHIA_SHELL_9P_SOCKET=/nonexistent \
