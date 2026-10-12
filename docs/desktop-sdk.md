@@ -104,3 +104,16 @@ evidence directory. The first formatting check failed, was corrected, and the
 final gate passed. This checkpoint has no successful protected Narthex
 owner/restart join yet; generic SDK joins are not a substitute for that gate.
 No installed client or live session was changed.
+
+The subsequent device-hidden owner join used Narthex `244c3c8` with Sophia's
+generic supplied-client conformance check, committed as `c2df6a428`. Narthex
+authenticated and reported revision-8 readiness at epochs 1 and 2; the normal
+owner revoked each launch and reaped it before replacement. An archived client
+changing its `shell` claim to `wm` failed authentication and never reported
+readiness. The expected failing test exited 101 at its authentication deadline.
+Evidence package `t317-narthex-owner-01` has manifest SHA-256
+`a6cf14025da687fc038e2df427a58c4d1da4707584c13fcfa42328af0f5ac747`.
+The trusted Session-to-Factotum channel is supplied. This is an authentication
+and recovery join with idle liveness observation, not descriptor presentation,
+a semantic round trip or physical acceptance. The original client source was
+unchanged by the control, and no binary was copied into evidence.
