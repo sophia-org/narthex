@@ -4,6 +4,9 @@ import ./desktop_sdk
 type FileSession* = ref object
   socket*: Socket
   session*: ptr Ss
+  role*, relay*: ptr NinePClient
+  roleStorage*, relayStorage*: pointer
+  relayFd*: cint
   storage*, transaction*, objects*: pointer
   epoch*, capabilities*: uint64
   pendingEvent*: bool

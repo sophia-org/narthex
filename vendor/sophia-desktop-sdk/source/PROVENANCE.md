@@ -1,5 +1,46 @@
 # Extraction and contract provenance
 
+## Authenticated output handoff (t317)
+
+The first joined Session run exposed an unscheduled bootstrap after successful
+authentication: the borrowed constructor returned without queuing `api`, so a
+poll-driven caller waited until its deadline. The constructor now starts the
+same bounded bootstrap driver as the fresh-fd entry point. Both constructors
+must immediately expose writable work or a zero timeout. Removing that drive
+fails `output bootstrap must schedule its first request without peer input`.
+Device-hidden full `make check`, the focused omission control and the restored
+full suite pass. Their self-excluding manifest identities are respectively:
+
+- `t317-output-sdk-schedule-01`: `6f12d2bfef802194d3c66766358dde4c0d21f6086a78437e7a35bbf8dc0992f0`.
+- `t317-output-sdk-schedule-control-01`: `1bdf8b93dced799287b2df53c84f9fd4349f9e7cb48978e66676edfcf7e3102c`.
+- `t317-output-sdk-schedule-restored-01`: `6f12d2bfef802194d3c66766358dde4c0d21f6086a78437e7a35bbf8dc0992f0`.
+
+`spec/sophia-output-files.md` is copied from signed Sophia commit
+`d5c9b63a3aa0fc088d45467700b6c131a1902c36`. It specifies the verified-afid
+startup and exact admitted-root handoff; no output record layout changes.
+`sophia_os_open_attached` borrows that quiescent wire and sole root, refusing
+pending work, unknown roots, insufficient bounds and overlapping storage.
+It begins with `api`, leaving transport identity and negotiated 9P state intact.
+
+Device-hidden `make check` passes with the existing scripted output lifecycle
+scenarios exercised through both constructors. These supply admission and do
+not claim a real Factotum exchange. Forcing the new constructor to plain attach
+fails at `output role handoff must not attach again`; the restored full suite
+passes. An earlier reset control was stopped for a wrong prediction: the
+generic 9P client's phase guard refused Tversion before the scripted peer saw
+it, failing the progress assertion. That STOP record is retained unchanged.
+
+Evidence package manifest SHA-256 identities:
+
+- `t317-output-sdk-02`: `50f00c3dcb7348cbf57cab1617dbdd924cb0dd8997a4cc0633eb4fd1b3ffbc28`.
+- `t317-output-sdk-reattach-control-01`: `cc952882e5c182884ea0c8bf8b966f9b2e364faf68c386d3916faec743f42053`.
+- `t317-output-sdk-restored-02`: `50f00c3dcb7348cbf57cab1617dbdd924cb0dd8997a4cc0633eb4fd1b3ffbc28`.
+
+The packages record dynamic candidate hashes and executable paths/hashes;
+no binaries are copied. The normative copy and its digest were updated after
+the code runs and checked separately. Production output-owner interoperability
+and migration of the native proof remain Sophia integration work.
+
 Initial source: `https://github.com/sophia-org/sophia`, commit
 `987cfd393a11edaa99e8b3c58be80d21167fb287` (signed t252 merge).
 The source tree was copied from `bindings/c/` into `src/`, preserving paths
@@ -161,3 +202,436 @@ no installed-desktop or physical GPU claim is added by this contract update.
 The role table now uses the accepted native descriptor sizes and feed bounds,
 and removes superseded client-migration observations. Wire layouts, library
 sources and tests are unchanged from the accepted-contract revision above.
+
+## WM Session source retirement
+
+`spec/sophia-wm-files.md` is copied unmodified from signed Sophia
+`8c4c58d6e99ac98b59d5f0d4d07e9e11bee2c2fe`. Session now defaults to WM files and refuses
+current-ipc selection. Rollback selects a previously verified compatible release;
+latency qualification stays open. Wire layouts, custody rules and SDK library
+sources are unchanged. SDK compatibility removal is a separate follow-up.
+
+## Shell Session default retirement
+
+`spec/sophia-shell-files.md` is copied unmodified from signed Sophia
+`49d63533d235d94574f9b32b9cd476cfbdb319b1`. Every Session shell role now defaults to 9P
+and refuses explicit current-ipc selection. Protected launch supplies the
+owner's 9P endpoint; recovery uses a compatible older whole release. The
+default remains experimental while latency and physical qualification are
+open. This reference update changes no library source, wire layout or custody
+rule. SDK compatibility source removal remains a separate follow-up.
+
+## Release 0.2.0: socket compatibility retirement
+
+Sophia's signed source retirement at `5b1d9ac4e` follows the accepted
+whole-release rollback decision. This SDK removes the shell/WM socket library,
+its headers, frame tests, socket schemas and frame corpora. Surviving spec
+files and the WM row corpus retain their original digests. The row generator
+reads the file contract alone; its generated codecs are unchanged.
+
+`sophia_desktop_select_shell` now takes the file path and output argument.
+Environment selection refuses the retired socket variable, including empty
+values. File connection authentication, bounded retry and ownership stay with
+the existing connection helper. The C file suites and generator checks pass
+in device-hidden isolation; release integration is recorded by Sophia's pin.
+The initial checksum-pruning attempt incorrectly treated already prefixed
+paths as relative to spec; the checksum gate refused it. The corrected list
+retains every existing file and passes without changing retained digests.
+
+The release also imports `spec/sophia-shell-files.md` from signed Sophia
+`2ea546bac9836aa1aed61ddeb52cc552710a9b8a`. This documentation correction points
+to the file schema and records that the existing Limits fields and validation
+relations survive adapter retirement. No wire layout changes. Its new digest
+is recorded in `spec/SHA256SUMS`; all other retained digests are unchanged.
+
+## Release 0.3.0: output file role
+
+`spec/sophia-output-files-v1.kdl` and `spec/sophia-output-files.md` are copied
+unmodified from signed Sophia `2f3264c432cc50af93e4fd911a71fc83117ca78e`.
+The KDL is the layout authority for `sophia_output_files.h`; the document
+supplies the file lifecycle, snapshot invariants and the revision-1 limitation
+that current transform and VRR are not published. The codec and session were
+written from these files, not translated from Sophia's Rust implementation.
+Their digests are recorded in `spec/SHA256SUMS`; all other digests are
+unchanged. Scripted-peer tests enforce the documented export rules. Sophia's
+independent C fixture at that commit passes negotiation, exact topology fetch,
+proposal delivery, terminal outcome and cumulative acknowledgement against the
+production OutputFileService. Evidence is
+`t253-c-peer-lifecycle-exchange.log` in Sophia's development evidence directory.
+The final 0.3.0 candidate also passes `make -j1 all check` (contract digests and
+17 test programs) in device-hidden isolation, recorded in
+`t253-sdk-030-check.log`. The peer linked against those built libraries passes
+the same production export fixture in `t253-sdk-030-export.log`.
+The SDK sources were the release candidate; version and provenance edits do not
+change those sources. This qualifies the C file client, not physical topology
+effects, native presentation, Rust client parity or output default selection.
+
+## Release 0.4.0: 9P2000.L output transport in the WM api
+
+`spec/sophia-wm-files.md` and `spec/sophia-output-files.md` are copied
+unmodified from signed Sophia contract commit
+`b0721d0de6a03cb44e57b0a923c6c385cf40b676`. The WM document names the WM
+`api` file's exact bytes and removes the WM's output grant. The output document
+becomes revision 1 and takes over physical ownership and recovery from the
+retired output IPC contract. Their new digests replace both entries in
+`spec/SHA256SUMS`. No other imported contract changes; every other digest is
+unchanged. That commit is a contract source, not a qualifying Session build.
+
+The WM session (`src/wm_session/bootstrap.c`) requires the exact `api` bytes
+`sophia-wm-files version=1 output_transport=9p2000.L` followed by a newline.
+The retired `current_ipc` value, a missing newline, a different letter case and
+an api without the transport field are refused before negotiation. Scripted
+tests assert each refusal with no submission. A private mutant accepting the
+retired string alongside the current one fails that test. The output session's
+wrong-api negative (a WM api offered to the output role) is unchanged. The
+output codec already keeps the outcome reason as an open u16 value, as revision 1
+requires. No output codec or session source changes in this release.
+
+`output_files` stays true. It is backed by Sophia's output file role at signed
+Sophia `ddd27bd6d9ac6d8e73394d9326705a7a62916f35`: native proof preparation
+(13 export tests and the protected Session fixture), performance qualification,
+and an attended four-stage native run (validate, reject, commit-restore and
+peer-death rollback) assembled by niltempus `bec6db137d7e`. The evidence is
+`t253-native-run-bec6db1-01` and `t253-perf-ddd27bd6d-01` in Sophia's development
+evidence directory. The run covered one DRM card with two heads and a
+refresh-only change on one head, verified by KMS and owner readback records.
+Resolution, position, enable, transform, mirror and multi-card changes are not
+qualified by it.
+
+`make all check` passes in device-hidden isolation at normal priority with the
+available CPUs (17 test programs). Build and test guidance no longer prescribes
+a fixed nice value or job count.
+
+## Release 0.5.0: additive chord lifecycle
+
+`spec/sophia-wm-files-v1.kdl`, `spec/sophia-wm-files.md` and
+`spec/sophia-wm-api.md` are copied unmodified from signed Sophia commit
+`86bf65046627ef9fea2a041ae10b08472b3271d1` on `feature/generic-chording`. That
+commit is the additive contract commit. Its parent, `dd62b50c8`, held copies
+byte-identical to the previous pins, so the import brings only this change.
+The commit is published for source reachability. It is not an implementation
+or acceptance claim: Session does not implement the lifecycle at that commit.
+The three new digests replace their entries in `spec/SHA256SUMS`, and every
+other digest is unchanged.
+
+The contract adds capability bit 20, `action_lifecycle`. It also adds the
+Configuration-only extension row `ConfigurationActionLifecycle` (kind 65294,
+16 bytes, at most 256, gated on `action_lifecycle`, `actions` and
+`configuration`) and the ActionLifecycle cause (kind 7, 24 bytes).
+
+`tools/generate_wm_rows.py` now expects 15 extension rows. It routes this row
+to the Configuration family: the contract reads it only in a Configuration,
+although it is written with snapshot transfer. The regenerated rows add the
+capability constant, the row codec, its layout and its reserved check; earlier
+rows are unchanged.
+
+`src/sophia_wm_files.h` and `src/wm_files/bodies.c` hand-code the cause. Its
+body is serial, action, phase, reason and count. It requires `actions`,
+`configuration` and `action_lifecycle`. Decoding, and encoding through the
+same check, accept only Held with reason 0, or Ended with reasons 1 to 5, a
+nonzero serial and action, and a count of at least 1. Negotiation
+(`src/wm_session/events.c`) fails when the selected capabilities include
+`action_lifecycle` without both `actions` and `configuration`, matching
+Session's selection rule.
+
+The codec checks the row's layout, its capability gate and its reserved bytes.
+Session's semantic validation owns two further kinds of rule, and the codec
+repeats neither:
+
+- Catalog and cross-row rules: each action is in the catalog, is not a session
+  operation, and appears in at most one row.
+- The per-row value rule: `held_ms` is 0 or 50 to 5000.
+
+Literal vectors cover every phase and reason pairing, count 0 and the
+saturated maximum, a zero serial or action, an unknown cause 8, each missing
+capability, and the Configuration rows with their capability gate and reserved
+bytes. Scripted-peer tests cover the negotiated dependency in both directions
+and the cause being refused before an application sees it when the capability
+was not negotiated. Three bounded mutants are each killed by these tests:
+removing the cause's capability gate, removing the negotiated dependency, and
+accepting Held with any reason.
+
+## Release 0.5.1: golden row for the chord lifecycle
+
+Sophia's contract commit `86bf6504` changed the WM file KDL but not the outputs
+generated from it, so 0.5.0 copied a golden row corpus without the new row.
+Signed Sophia commit `3a1dce11febb64df2fc98a83f5ac1ff342287947`, the follow-up
+to `86bf6504` on `feature/generic-chording`, adds those generated outputs and
+nothing else. `spec/golden/sophia-wm-v1.records` is copied unmodified from it.
+Its one new line is the `configuration_action_lifecycle` sample: action 5,
+`held_ms` 150, reserved 0. The new digest replaces that entry in
+`spec/SHA256SUMS`; every other contract copy and digest is unchanged.
+
+`wm_files_test` decodes that row with the existing generated codec and now
+expects 23 golden rows. An unrecognised row still fails the test. Against the
+0.5.0 sources the new corpus fails with "unrecognized golden row". No library
+source changes; v0.5.0 is unchanged and remains tagged.
+
+## Release 0.6.0: ChordAction
+
+`spec/sophia-wm-files-v1.kdl`, `spec/sophia-wm-files.md` and
+`spec/sophia-wm-api.md` are copied unmodified from signed Sophia contract
+commit `b0a2b0303b02af27598def07f455e8e0240b9366` on
+`feature/generic-chording`. Its parent held copies byte-identical to the 0.5.1
+pins, so the import brings only this change. The golden corpus is unchanged,
+because the new cause adds no fixed row. The three new digests replace their
+entries in `spec/SHA256SUMS`.
+
+The contract adds capability bit 21, `chord_actions`, which requires
+`action_lifecycle`, `actions` and `configuration`. With it, a keyboard
+activation of a followed chord arrives as ChordAction: cause 8, 24 bytes,
+holding the activation serial, the chord serial and the action, all nonzero.
+The opener carries equal serials. The regenerated rows add only the capability
+constant.
+
+`src/sophia_wm_files.h` and `src/wm_files/bodies.c` hand-code the cause.
+Decoding, and encoding through the same check, require all four capabilities
+and refuse a zero field, so a client that selected `action_lifecycle` alone
+(0.5.1 behaviour) refuses cause 8. Negotiation (`src/wm_session/events.c`)
+fails when `chord_actions` is selected without the lifecycle, actions and
+configuration. Cause 9 is now the unknown code in the literal tests.
+
+New tests:
+- literal ChordAction vectors: the round trip, the opener's equal serials,
+  each missing capability, and each zero field;
+- scripted peers: all sixteen combinations of the four related capabilities,
+  and cause 8 refused before an application sees it without `chord_actions`
+  but delivered with it.
+
+The ChordAction cause is qualified only by literal and scripted-peer tests:
+Session does not send it yet.
+
+## Release 0.7.0: held capture
+
+`spec/sophia-wm-files-v1.kdl`, `spec/sophia-wm-files.md` and
+`spec/sophia-wm-api.md` are copied unmodified from signed Sophia contract
+commit `ac04e1a7487e9be3a238075e3c624aff93705f2d` on `feature/held-capture`. Its parent held copies
+byte-identical to the 0.6.0 pins, so the import brings only this change. The
+golden corpus is unchanged, because the contract adds no fixed row. The three new digests replace their entries in
+`spec/SHA256SUMS`.
+
+The contract adds capability bit 22, `held_capture`, which requires
+`surface_instances` and `presentation_actions`. With it, a presentation whose
+outputs are all Overlay may carry a keyboard output and bindings. Sophia passes
+modifier keys through such a capture and takes only other keys. The
+regenerated rows add only the capability constant.
+
+The presentation codec already carries `keyboard_output`, output modes and
+bindings without judging their combination, so no codec change is needed.
+Negotiation (`src/wm_session/events.c`) fails when `held_capture` is selected
+without both dependencies. The scripted peer's full capability set (`WP_CAPS`)
+now includes bit 22.
+
+New test: scripted peers check all eight combinations of the three related
+capabilities.
+
+Held capture is qualified only by scripted-peer tests: Session does not
+implement it yet.
+
+## Release 0.8.0: experimental lock provider role
+
+The lock provider contract is copied unmodified from Sophia `fd6ea7538` on
+`lock/t034-next`, the branch that became Sophia's lock provider role (t294):
+
+- `protocol/sophia-lock-files-v1.kdl` → `spec/sophia-lock-files-v1.kdl`
+- `docs/sophia-lock-files.md` → `spec/sophia-lock-files.md`
+- `protocol/golden/sophia-lock-files-v1.records` →
+  `spec/golden/sophia-lock-files-v1.records`
+
+The three copies are byte-identical at Sophia's signed master merge
+`61d545c9087a685c5161f0d5f3132436aa82d31e` ("Merge the lock provider role
+(t294)"), which this release names as their contract revision. Merging the
+implementation did not accept the contract: the copied text still marks
+itself revision 1 (draft), and the bytes are kept unchanged. The lock API is
+therefore experimental in this release and can change incompatibly until
+Sophia accepts the contract explicitly. Every other
+`spec/` copy is unchanged and also matches that master. The three new digests
+are added to `spec/SHA256SUMS`.
+
+The release adds two headers and changes none:
+
+- `sophia_lock_files.h` (`sophia_lf_*`): the record codec (decoding, encoding,
+  submission and acknowledgement framing), checked against Sophia's golden
+  records and the contract's refusal rules.
+- `sophia_lock_client.h` (`sophia_lc_*`): a nonblocking lock provider client
+  over the existing 9P client. It reads `api` and `limits`, negotiates with
+  any UI chords, keeps one submission and one upload in flight, and
+  acknowledges an event only after the caller consumes it. ObjectPublished is
+  presented only after that exact lock object has been read. A superseded
+  announcement is consumed unread. End and Cancel carry their Begin's
+  transaction. The client neither discovers the socket nor reconnects.
+
+`struct sophia_lc_client` is declared in full for caller allocation, so its
+layout is part of this release's surface. It holds the 9P client by pointer,
+its operation slots (`struct sophia_lc_operation`) embed the existing
+`struct sophia_9p_handle`, and its other members are new lock record types.
+No existing header, structure or symbol changes. The client's cross-file
+helpers are named `sophia_lc_internal_*`. `lock_client_test` defines the
+generic `lc_*` names to prove that a consumer may use them.
+
+Tests: `lock_files_test` holds literal round trips of the golden records and
+the refusal rules. `lock_client_test` runs scripted 9P peers through bootstrap,
+negotiation and refusal, lock object fetches including a superseded
+announcement, uploads (admitted, rejected, refused, cancelled), demands,
+candidates, EAGAIN retry, custody held until acknowledged, and ESTALE.
+
+One scratch run against Sophia's production lock export passed (Sophia
+`fd6ea7538`). The permanent harness belongs in Sophia once this release is
+vendored. Until it passes, `compatibility.json` declares `lock_files` false.
+Upload throughput is bound by the single upload write in flight. Pipelining
+uploads is a follow-up that needs no contract change.
+
+## Release candidate 0.9.0: bounded lock upload pipelining
+
+All contract copies remain byte-identical to 0.8.0. The experimental lock
+client adds opt-in windows of one to eight Twrites on the existing upload
+cursor. Default one-write behavior remains. Five request slots are reserved
+for non-upload work; kleis uses sixteen slots and a window of eight. The
+caller-allocated client grows, so consumers must rebuild for this 0.x release.
+
+Each write has a distinct handle and count. Reply reordering preserves issued
+offsets, and End requires all bytes acknowledged. Cancel stops new writes and
+drains outstanding replies before releasing the borrowed frame. A short write
+in a pipeline cancels the resource instead of guessing the remote cursor.
+A terminal resource status also drains outstanding writes before closing its
+fid. A terminal connection is disposed rather than replayed.
+An upload Rerror now cancels the resource in single-write mode too, rather
+than only closing its fid. The peer's errno is retained; a pipelined short
+reply requests cancellation without inventing a remote errno.
+After the last outstanding reply, an internally queued Cancel creates its
+wire request in that same service call. Poll interest exposes the write
+immediately; applications do not need a timer to advance local SDK work.
+
+Local scripted controls cover a withheld first reply, reverse replies, input
+and ack progress with eight writes held, cancellation during an upload, short
+and failed writes, resource rejection while writes remain, disconnect, and
+single-write short-write retry. Four mutants (serializing the window, early
+borrow release, wrong offsets and ignoring cancellation) fail named assertions.
+The strict C suites, generator checks and all suites under clang ASan/UBSan
+pass. Production integration and device throughput are separate Sophia gates;
+this record makes no throughput claim.
+
+## t317 profile checkpoint
+
+Only the 9P profile copy and its digest change, alongside this provenance and
+the explicit coverage limit. The profile is Sophia's t317 candidate on base
+`e855fd75acd8ac38b7b779cc5377acd5d2c0c223`, not that base's profile. Sophia's
+subsequent immutable SDK pin binds the candidate trees. No C implementation
+or public API changes; Tauth and launch authentication remain unimplemented.
+
+## t317 generic afid primitives
+
+The subsequent C implementation uses the same pinned 9P profile: Tauth returns
+an afid with QTAUTH; attach-with-afid explicitly names that conversation while
+uname/aname remain claims and n_uname is NOUID. Ordinary attach delegates with
+NOFID and preserves existing behavior. Auth refusal and a winning flush return
+the reserved fid, while Rauth winning the race retains it until clunk.
+
+Scripted tests check literal request bodies, read access on the returned afid,
+root-only cleanup after an attach refusal, auth refusal, both flush orderings,
+QTAUTH exclusion from ordinary roots, malformed qid types and record lengths.
+Launch-channel authentication and role bootstrap are not implemented by these
+primitives. Production-export interoperability remains a separate Sophia gate.
+
+The strict C suite and the same suite under clang ASan/UBSan pass. Two controls
+are refused by the tests: accepting an ordinary qid as an auth qid, and leaking
+the Tauth fid on refusal. Sources are restored and the normal suite passes
+again. Local evidence `t317-sdk-c-afid-01` has self-excluding SHA256SUMS hash
+`e277c561ca483e52e07364aef71fb26dfbcd1d7c9845e00745340bedb202d362`;
+it records binary paths/hashes, not copied executables. This result paragraph
+follows the captured candidate; implementation and tests are unchanged.
+
+## Shared launch conversation and lock root handoff
+
+`spec/factotum-launch-authentication.md` is copied from signed Sophia
+`6937794595d0a7d266f52d5ede65c31f3e41bc51`. It supplies the fixed challenge/status
+records and private relay view used by `sophia_launch_auth.h`. The generic 9P
+library remains independent of these Sophia-specific records.
+
+The helper owns one pending request across two caller-owned clients, copies
+bounded claims, relays its own afid's challenge, and exposes the admitted root
+only after clunking its temporary afid and relay fids. It retains the launch
+channel itself. A fixed five-second total deadline and monotonic caller time
+bound retries and silent peers. EAGAIN at Tauth is paced without renewing the
+deadline; other refusals are terminal, with no ordinary-attach fallback.
+The lock client's admitted-root constructor resumes its existing bootstrap at
+`api` without Tversion or Tattach. Scripted tests cover successful handoff,
+malformed challenge/status, relay refusal, short write, retry, deadline,
+backwards time, cancellation, retained fid counts and busy/unknown root refusal.
+Initialization marks the supplied launch-channel fd CLOEXEC before I/O and
+fails if that operation fails. This is descriptor-flag evidence; it does not
+prevent deliberate forwarding or proxying by a cooperating capability holder.
+Production interoperability and normal Session startup remain separate gates.
+
+The strict C suite and clang ASan/UBSan suite pass on the formatted candidate.
+Controls discriminate accepting a refused relay/status, omitting the total
+deadline, failing to set CLOEXEC and re-attaching the already admitted root.
+All sources are restored, compared against the complete candidate inventory,
+and the normal suite passes again. `t317-sdk-launch-03` has self-excluding
+SHA256SUMS hash `dfeff9a787310c59ae5faa8eff5c7112cd9eb8e19104a675b5c8b8b74ca6319d`.
+Only this result paragraph follows the captured candidate; executables are
+recorded by path/hash, never copied to evidence.
+
+## Normal lock-provider admission contract
+
+`spec/sophia-lock-files.md` and `spec/factotum-launch-authentication.md` now
+come from signed Sophia `49eacf6462cfbe1eec8195ddeed5a1090c932447`. They describe
+normal provider startup through the protected launch channel, Factotum afid
+exchange, immutable identity and current custody. Record layouts and SDK code
+are unchanged. Sophia's provider join uses this SDK's existing launch helper
+and admitted-root lock constructor; physical/client rollout remains separate.
+
+## WM admitted-root handoff
+
+`spec/sophia-wm-files.md` now comes from signed Sophia
+`3e60e53077e4a6e7ff4b79d63b81a2b5b41c8896`, which requires authenticated attach
+for normal WM startup and replacement. Record layouts are unchanged.
+`sophia_ws_open_attached` exclusively borrows a quiescent admitted wire/root,
+checks capacity, fid ownership, pending/partial I/O and disjoint allocations,
+and starts at api without Tversion or Tattach. The existing fresh-fd constructor
+retains its behavior; an authenticated endpoint refuses its anonymous attach.
+
+The entire scripted WM session suite runs through both constructors. Scripted
+admission is supplied, not a Factotum verdict. The strict full C suite and
+clang ASan/UBSan suite pass. A reattach mutation fails at `WM handoff must not
+reattach its admitted wire`; omitting the initial drive fails at `WM bootstrap
+must schedule its first request without peer input`. Each control restores
+the captured source bytes, and the full normal suite passes again. Evidence
+records executable paths and hashes, never copied binaries.
+
+| Package | SHA256SUMS SHA-256 |
+| --- | --- |
+| `t317-wm-sdk-01` | `5f719e780b952163b15e6508b1747ba9156bc295ad599de1f5d0b56afc67363e` |
+| `t317-wm-sdk-reattach-control-01` | `347646d477574c9d5e800e6269e5577f9edbacdb713430aadbf62919a1d18962` |
+| `t317-wm-sdk-schedule-control-01` | `c465dacce28429aa2af1fd4397d63cce1d0b537e713fa201afee5b16a4770966` |
+| `t317-wm-sdk-restored-01` | `044f35d24f1d5a5e861e937771a623fae5faf0a54f926cff637c15fbcc22120e` |
+
+The contract copy/digest and this documentation follow the captured code
+candidate; no implementation or test bytes changed. Production WM-owner
+interoperability and deployed-client migration remain separate gates.
+
+## Shell admitted-root handoff
+
+The shell contract copy is from signed Sophia
+`3b1cf9b82f192d35c4c52d5d85a49ccba1125ad8`. Record layouts are unchanged.
+`sophia_ss_open_attached` and its external-staging form borrow the authenticated
+wire/root and schedule the api read without version or attach. The lower
+record client exposes `sophia_sf_client_init_attached`. Poll integration uses
+the borrowed connection. Legacy raw constructors retain their behavior.
+
+The strict full suite and clang ASan/UBSan suite pass. New scripted tests cover
+bar, launcher, dock and descriptor negotiation, inline/external staging, bar
+submission custody, wrong root, partial input and overlapping wire storage.
+Admission is supplied; successful production authentication remains a separate
+join. A reattach control fails at `shell handoff must not reattach its admitted
+wire`. Source is restored and the full normal suite passes again. The first
+control attempt is retained as STOP: a root diagnostic fired before the
+intended wire assertion; the diagnostic was moved after wire processing.
+
+| Package | SHA256SUMS SHA-256 |
+| --- | --- |
+| `t317-shell-sdk-handoff-dev02` | `c2b73714eb44ada432be8c950ff1114c084d3fb9451bd31d4e6ab54b27d36f7e` |
+| `t317-shell-sdk-handoff-restored01` | `bc1b1e71b5aaeeaceb403d225b0ce4a359b01489fe94b7972023c49f5c7e30bb` |
+
+Evidence records binary paths and hashes, not copies. This provenance addition
+follows the captured candidate; no implementation or test bytes changed.

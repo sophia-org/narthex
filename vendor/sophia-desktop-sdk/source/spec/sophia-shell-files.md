@@ -17,9 +17,10 @@ contract in the [control bus](sophia-9p-control-bus.md).
 
 ### Protocol and revisions
 
-`protocol/sophia-shell-v1.kdl:1` declares frame-version 1, interface-major 1,
-interface-revision 8, max-descriptors 16, max-label-bytes 128,
-max-pending-activations 16 and max-shortcuts 256. The content design is ADR
+`protocol/sophia-shell-files-v1.kdl` defines the file records and objects.
+The role retains interface-major 1, interface-revision 8, max-descriptors 16,
+max-label-bytes 128, max-pending-activations 16 and max-shortcuts 256. The
+retired socket envelope has no role in file encoding. The content design is ADR
 [6ndjwffd](notes/decisions/6ndjwffd-content-capability-design-for-sophia_shell_v1.md).
 The GPU permission is ADR
 [mn4mzcnf](notes/decisions/mn4mzcnf-separate-shell-presentation-from-gpu-execution-permission.md). Capability bits are revision-gated:
@@ -51,7 +52,7 @@ refused, never silently downgraded (`docs/sophia-shell-v1-direction.md`).
 | Role to content store profile: Bar = Legacy, Dock = PersistentCatalog, Launcher = NativeLauncher | `crates/sophia-session/src/shell_component_connections.rs:170-172` |
 | Negotiation per profile: Bar up to r6 with bit 0; Launcher exactly r7 with bits 5, 7, 8, 11; Dock exactly r8 with bits 1, 5, 7, 8, 12 | `crates/sophia-runtime/src/shell_transport/negotiation_policy.rs`, `native_launcher.rs`, `catalog_candidates.rs` |
 | One private 0700 endpoint per component, one active peer, protected launch under Bubblewrap | `crates/sophia-runtime/src/policy_socket.rs`, `crates/sophia-session/src/live_session/metadata_shell/component_session.rs` |
-| Peer admission by supervisor evidence; the evidence "is a declaration the supervisor makes, not a proof" | `policy_socket.rs:270-274` (`authorize_protected_peer`) |
+| Supervisor evidence filters accept; afid verification joins Factotum identity and current launch custody | `shell_component_processes/authentication.rs`, `live_session/metadata_shell/authentication.rs`, `shell_transport/files.rs` |
 | One content epoch registry for all components: 64 MiB, three active epochs, sixteen retained | `shell_component_connections.rs:86`; `crates/sophia-runtime/src/shell_content/epoch_registry.rs:59-61, 93-95` |
 | Descriptor component: one 9P endpoint, mutually exclusive with independent content components | `crates/sophia-session/src/live_session/metadata_shell.rs` |
 | Direct GPU: a separate per-component grant; content and GPU permissions do not imply each other | ADR `mn4mzcnf`, `live_session/metadata_shell/gpu.rs` |
@@ -152,6 +153,36 @@ separate export profile on its own endpoint.
 Paths, attach names, UIDs, fids and qids grant nothing. Authority comes from
 the endpoint's admitted peer and the role profile Session fixed before the
 peer connected.
+
+### Authenticated shell launches
+
+Normal Session launches of Bar, Dock and ApplicationLauncher require Factotum.
+Session selects a separate confined namespace with no portal capabilities for
+each component. The authentication claims are `uname="shell"` and respectively
+`aname="bar"`, `"dock"` or `"launcher"`; these must match but select no authority.
+The expected-peer accept filter remains an availability defense. Root admission
+requires the verified afid and current custody under
+[launch authentication](factotum-launch-authentication.md).
+
+The descriptor-shell owner uses the same launch transaction with
+`uname="shell"`, `aname="descriptor"` and a separate confined namespace with no
+portal capabilities. Initial headless startup and native-presentation recovery
+advance on owner turns. Pausing, transport failure and GPU replacement revoke
+local service and retain pending cancellation/reaping; a failed or cancelled
+attempt burns its epoch. Successful negotiation is still required before the
+shell can publish descriptors or use its separately admitted content grant.
+
+Registration precedes protected spawn. Pending startup retains the component
+attempt and content reservation; cancellation closes local service first and
+the owner continues cancelling/reaping before permitting a fresh attempt.
+Loss of launch authority revokes the connection and reports its grant for
+presentation cleanup without waiting for child exit. The spawning thread's
+lease remains held until the supervisor has been reaped. Session retains the
+coordinator through outer shutdown cleanup as well as the ordinary owner loop.
+
+Deployed SDK/client rollout remains separate t317 migration work.
+Supplied-admission conformance fixtures can still use the explicit legacy entry
+point; normal shell launches cannot fall back to it.
 
 ### Root vocabulary
 
@@ -907,20 +938,22 @@ Skew is resolved by revision and capability negotiation, with no wire fallback.
 Supervisor replacement starts a fresh process and epoch; reconnect never replays
 unsettled submissions.
 
-Current IPC remains the default for independent content components until t269.
-Session-owned configuration selects their transport at startup. A descriptor
-component requires explicit `9p2000.L` and excludes other shell components;
-the single-shell CLI selectors are retired. Clients and inherited environment do not choose the
-server's protocol, and there is no sniffing or fallback. Mixed transports can
-use the same one `ContentEpochRegistry`; selection neither creates another
-budget nor changes a role's grants.
+Every Session shell component uses 9P2000.L. Omitted `transport` selects it;
+an explicit `9p2000.L` is accepted and `current-ipc` is refused. A descriptor
+component excludes other shell components; the single-shell CLI selectors are
+retired. Clients and inherited environment do not choose the server's protocol.
+Protected launch supplies only the owner's `SOPHIA_SHELL_9P_SOCKET`, removing
+supplied endpoint variables including the retired `SOPHIA_SHELL_SOCKET`.
+There is no sniffing or fallback. Components share one `ContentEpochRegistry`;
+the transport default neither creates another budget nor changes role grants.
 
-A transport change is a complete component replacement: stop, revoke, settle
-the existing retirement claims, then issue a fresh grant and connection epoch.
-It never migrates a live grant. Until a reload owner implements that complete
-transition, a reload requesting a transport change must refuse it and retain
-the startup selection. Explicit Session relaunch is the rollback path; an
-installed-default change remains a separate acceptance decision.
+Replacement stops and revokes the old component, retains outstanding retirement
+claims and issues a fresh grant and connection epoch. It never migrates a live
+grant. Profile reload does not replace the startup component selection. Recovery
+to an IPC client requires a verified compatible older release as a whole for the
+next login, rather than substitution in a running 9P Session. The default remains
+experimental: source retirement does not close the outstanding t250/t252 latency
+and physical qualification, or authorize installation.
 
 ## Independent clients and evidence
 
@@ -1008,23 +1041,21 @@ alive as the file format, so it is replaced before more families build on it:
   writes its last byte. A refused or partial transfer never releases custody.
 - **Clients seam at typed values.** `sophia-shell-client` queues typed
   records and objects; each wire encodes natively. No frame translation.
-- **The independent oracle is written from this contract alone**, never
-  from `protocol/sophia-shell-v1.kdl`.
+- **The independent oracle is written from this file contract alone.**
 
 The per-role behaviour, owners, bounds and budgets above are unchanged.
 
 ### IPC purge inventory (t255)
 
-Nothing new may depend on these; each is deleted when its role's file wire
-is the accepted default:
+WM and shell socket implementations and SDK compatibility retire under t269
+and t270. The file contract keeps its existing Limits layout: removing a client
+adapter does not authorize changing negotiated fields or validation relations.
+The remaining public IPC is tracked separately:
 
 | Area | IPC code |
 | --- | --- |
-| Shell | socket transport (`shell_transport` socket branch, inbox/outbox frames), `ipc::shell_*` codecs (`fields.rs`, `codec.rs`), `packets/shell_*` |
-| Shell clients | Rust desktop SDK `sophia-shell-client` socket wire; C desktop SDK `src/shell_wire` socket half (Sophia pins the latter under `vendor/c-desktop-sdk/source`) |
-| Shell file contract | the socket-shaped `Limits` fields (`max_frame_payload`, `max_input_queue_bytes`) and their +24/+48 validation relations remain until coordinated SDK retirement. Owners already charge native record-body bytes and per-record control credits; `max_output_queue_bytes` and the control reserve remain Session retention bounds. Only the socket adapter uses the two socket fields to bound I/O |
-| WM | `policy_transport_worker/current_ipc.rs`, `ipc::wm_v1*` and `ipc::policy_*` codecs, Hagia's legacy policy wire |
-| WM file wire (retained) | `wm_records`, `wm_rows`, `policy_scalars` and `BinaryCodecError` are neutral owners; `sophia-wm-files-v1.kdl` owns the fixed row layouts. The old IPC adapter imports these; deleting that adapter does not delete the file codecs |
+| Shell file contract (retained) | `Limits` fields `max_frame_payload`, `max_input_queue_bytes` and their +24/+48 validation relations remain wire-compatible. Owners charge native record-body bytes and per-record control credits; `max_output_queue_bytes` and the control reserve remain Session retention bounds. A layout change needs a separate coordinated contract amendment |
+| WM file wire (retained) | `wm_records`, `wm_rows`, `policy_scalars` and `BinaryCodecError` are neutral owners; `sophia-wm-files-v1.kdl` owns the fixed row layouts |
 | Output | output socket role (`ipc::output_v1`), migrated by t253 |
 | Control | control socket (`ipc::control_v1`), per the control-bus plan |
 | Broker/portal | `ipc::broker*`, `ipc::portal` (t254 inventory) |

@@ -1,7 +1,7 @@
 #include "internal.h"
 
 static const char api[] =
-    "sophia-wm-files version=1 output_transport=current_ipc\n";
+    "sophia-wm-files version=1 output_transport=9p2000.L\n";
 static const char *const files[] = {"events", "submit", "ack"};
 static uint32_t *fid(struct sophia_ws *s, unsigned index) {
   if (!index)
@@ -14,43 +14,43 @@ static int bootstrap_drive(struct sophia_ws *s) {
     return 0;
   switch (s->bootstrap) {
   case 0:
-    r = sophia_9p_version(&s->wire, &s->boot_op.handle);
+    r = sophia_9p_version(s->wire, &s->boot_op.handle);
     break;
   case 1:
-    r = sophia_9p_attach(&s->wire, "", "", &s->boot_op.handle, &s->root);
+    r = sophia_9p_attach(s->wire, "", "", &s->boot_op.handle, &s->root);
     break;
   case 2:
   case 6: {
     const char *name = s->bootstrap == 2 ? "api" : "limits";
     s->boot_used = 0;
-    r = sophia_9p_walk(&s->wire, s->root, &name, 1, &s->boot_op.handle,
+    r = sophia_9p_walk(s->wire, s->root, &name, 1, &s->boot_op.handle,
                        &s->boot_fid);
     break;
   }
   case 3:
   case 7:
-    r = sophia_9p_lopen(&s->wire, s->boot_fid, 0, &s->boot_op.handle);
+    r = sophia_9p_lopen(s->wire, s->boot_fid, 0, &s->boot_op.handle);
     break;
   case 4:
   case 8: {
     uint32_t n = (s->bootstrap == 4 ? 257u : 65u) - (uint32_t)s->boot_used;
     if (s->boot_iounit && n > s->boot_iounit)
       n = s->boot_iounit;
-    r = sophia_9p_read(&s->wire, s->boot_fid, s->boot_used, n,
+    r = sophia_9p_read(s->wire, s->boot_fid, s->boot_used, n,
                        &s->boot_op.handle);
     break;
   }
   case 5:
   case 9:
-    r = sophia_9p_clunk(&s->wire, s->boot_fid, &s->boot_op.handle);
+    r = sophia_9p_clunk(s->wire, s->boot_fid, &s->boot_op.handle);
     break;
   default: {
     unsigned index = (s->bootstrap - 10u) / 2u;
     if (!(s->bootstrap % 2))
-      r = sophia_9p_walk(&s->wire, s->root, &files[index], 1,
+      r = sophia_9p_walk(s->wire, s->root, &files[index], 1,
                          &s->boot_op.handle, fid(s, index));
     else
-      r = sophia_9p_lopen(&s->wire, *fid(s, index), index ? 1 : 0,
+      r = sophia_9p_lopen(s->wire, *fid(s, index), index ? 1 : 0,
                           &s->boot_op.handle);
     break;
   }
@@ -77,7 +77,8 @@ int ws_boot_reply(struct sophia_ws *s, const struct sophia_9p_reply *r) {
     }
     if (s->bootstrap == 4) {
       /* This advertises the separate output role's current contract. It
-       * does not select or connect any output wire for the WM client. */
+       * does not select or connect any output wire for the WM client. The
+       * comparison is exact: an export still naming current_ipc is refused. */
       if (s->boot_used != sizeof(api) - 1 ||
           memcmp(s->boot_bytes, api, sizeof(api) - 1))
         return SOPHIA_9P_INVALID;
@@ -121,12 +122,12 @@ int ws_drive(struct sophia_ws *s) {
     return r;
   if (!s->event_op.active && s->journal_used < WS_JOURNAL_BYTES) {
     size_t n = WS_JOURNAL_BYTES - s->journal_used;
-    if (n > s->wire.msize - 11u)
-      n = s->wire.msize - 11u;
+    if (n > s->wire->msize - 11u)
+      n = s->wire->msize - 11u;
     if (s->events_iounit && n > s->events_iounit)
       n = s->events_iounit;
     r = ws_started(&s->event_op,
-                   sophia_9p_read(&s->wire, s->events_fid, s->event_offset,
+                   sophia_9p_read(s->wire, s->events_fid, s->event_offset,
                                   (uint32_t)n, &s->event_op.handle));
     if (r)
       return r;
@@ -135,7 +136,7 @@ int ws_drive(struct sophia_ws *s) {
     uint8_t b[16];
     if (sophia_wf_ack_encode(b, s->epoch, s->consumed))
       return SOPHIA_9P_INVALID;
-    r = sophia_9p_write(&s->wire, s->ack_fid, 0, b, 16, &s->ack_op.handle);
+    r = sophia_9p_write(s->wire, s->ack_fid, 0, b, 16, &s->ack_op.handle);
     if (!r) {
       s->ack_op.active = 1;
       s->ack_pending = s->consumed;

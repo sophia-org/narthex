@@ -85,6 +85,14 @@ data-oriented layout gate alone.
 | `--serve` | live switcher loop driven by Sophia snapshots |
 
 `SOPHIA_SHELL_9P_SOCKET` is required and must be absolute.
+When Session supplies `SOPHIA_LAUNCH_AUTH_FD`, Narthex retains that generation's
+channel, authenticates the `shell` / `descriptor` claim through the SDK, and
+continues on the admitted root without another attach. The environment contains
+only the descriptor number; Session chooses the authority. Malformed descriptors
+or authentication failures end startup without falling back to plain attach.
+Standalone supplied-endpoint conformance without that variable retains its
+plain-attach path; it does not establish protected admission.
+
 `SOPHIA_SHELL_SOCKET` is refused. `SOPHIA_SHELL_BAR_THICKNESS` enables the
 bottom-edge reservation; unset or zero reserves nothing.
 

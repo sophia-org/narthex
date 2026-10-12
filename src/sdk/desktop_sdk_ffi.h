@@ -1,6 +1,9 @@
 #ifndef NARTHEX_DESKTOP_SDK_FFI_H
 #define NARTHEX_DESKTOP_SDK_FFI_H
 #include "sophia_shell_session.h"
+#include "sophia_launch_auth.h"
+static inline size_t narthex_9p_state_bytes(void) { return sizeof(struct sophia_9p_client); }
+static inline size_t narthex_la_state_bytes(void) { return sizeof(struct sophia_la_client); }
 
 /* Allocate the public, caller-owned SDK state without duplicating its private
  * fields in Nim. The caller zero-initializes it and retains ownership. */

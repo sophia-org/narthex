@@ -19,7 +19,7 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 build_dir=$(mktemp -d)
 trap 'rm -rf "$build_dir"' EXIT HUP INT TERM
 cd "$root"
-for unit in tdesktop_sdk tshell_v1 tshell_tabs tshell_reference tshell_launcher; do
+for unit in tlaunch_authentication tdesktop_sdk tshell_v1 tshell_tabs tshell_reference tshell_launcher; do
     nim c -r --hints:off --path:src \
         --nimcache:"$build_dir/cache-$unit" -o:"$build_dir/$unit" "tests/$unit.nim"
 done

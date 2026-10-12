@@ -7,6 +7,7 @@ const sdkSource =
   "vendor/sophia-desktop-sdk/source/src"
 {.passC: "-I" & sdkSource.}
 {.passC: "-I" & currentSourcePath().parentDir.}
+{.compile: sdkSource / "launch_auth/client.c".}
 {.compile: sdkSource / "nine_p/client.c".}
 {.compile: sdkSource / "nine_p/replies.c".}
 {.compile: sdkSource / "nine_p/requests.c".}
@@ -254,5 +255,65 @@ proc ssObjectResult*(
 proc ssWelcome*(
   session: ptr Ss, value: ptr SfNegotiated
 ): cint {.importc: "narthex_ss_welcome", header: "desktop_sdk_ffi.h".}
+
+proc ninePStateBytes*(): csize_t {.
+  importc: "narthex_9p_state_bytes", header: "desktop_sdk_ffi.h"
+.}
+
+proc laStateBytes*(): csize_t {.
+  importc: "narthex_la_state_bytes", header: "desktop_sdk_ffi.h"
+.}
+
+proc ninePStorageBytes*(
+  msize: uint32, requests: uint16
+): csize_t {.importc: "sophia_9p_storage_bytes", header: "sophia_9p_client.h".}
+
+proc ninePInit*(
+  client: ptr NinePClient,
+  fd: cint,
+  msize: uint32,
+  requests, fids: uint16,
+  storage: pointer,
+  bytes: csize_t,
+): cint {.importc: "sophia_9p_init", header: "sophia_9p_client.h".}
+
+proc ninePWantsWrite*(
+  client: ptr NinePClient
+): cint {.importc: "sophia_9p_wants_write", header: "sophia_9p_client.h".}
+
+proc laInit*(
+  auth: ptr LaunchAuth, role, relay: ptr NinePClient, uname, aname: cstring, now: uint64
+): cint {.importc: "sophia_la_init", header: "sophia_launch_auth.h".}
+
+proc laService*(
+  auth: ptr LaunchAuth, now: uint64, budget: csize_t
+): cint {.importc: "sophia_la_service", header: "sophia_launch_auth.h".}
+
+proc laReady*(
+  auth: ptr LaunchAuth
+): cint {.importc: "sophia_la_ready", header: "sophia_launch_auth.h".}
+
+proc laRoot*(
+  auth: ptr LaunchAuth
+): uint32 {.importc: "sophia_la_root", header: "sophia_launch_auth.h".}
+
+proc laNextWake*(
+  auth: ptr LaunchAuth
+): uint64 {.importc: "sophia_la_next_wake", header: "sophia_launch_auth.h".}
+
+proc laCancel*(
+  auth: ptr LaunchAuth
+) {.importc: "sophia_la_cancel", header: "sophia_launch_auth.h".}
+
+proc ssOpenAttachedStaging*(
+  s: ptr Ss,
+  wire: ptr NinePClient,
+  root: uint32,
+  config: ptr SsConfig,
+  storage: pointer,
+  bytes: csize_t,
+  transaction: pointer,
+  capacity: csize_t,
+): cint {.importc: "sophia_ss_open_attached_staging", header: "sophia_shell_session.h".}
 
 {.pop.}

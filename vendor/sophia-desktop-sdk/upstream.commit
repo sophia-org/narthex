@@ -1,13 +1,14 @@
-tree ef0b63234fee4efaa44fe448a975dc8b9566af38
-parent 88347eb7b37816450863e4de582f1c01e80d446a
-author Mason Green <mason@greenm01.net> 1790597944 -0400
-committer Mason Green <mason@greenm01.net> 1790597944 -0400
+tree 13c1c259fcdd2c0f31e213c411658da90881a7a7
+parent 93361918dd0213a13a2fc8bd26a7911ff7ae16e1
+author Mason Green <mason@greenm01.net> 1791778709 -0400
+committer Mason Green <mason@greenm01.net> 1791778709 -0400
 gpgsig -----BEGIN PGP SIGNATURE-----
  
- iHUEABYIAB0WIQR+I2QUnoHdebKT6m9XGEu2KoAAYgUCarpbOAAKCRBXGEu2KoAA
- YuDEAP98Z/WLVaOy6DTG1tPnhc+r7lWDiLMptvJ/Q7/6CRiEHgEAu4jqLyau0CMV
- DLkqPtxCEdSxnF2CHKp6vo6M8poyHQw=
- =msFO
+ iJEEABYIADkWIQR+I2QUnoHdebKT6m9XGEu2KoAAYgUCasxflRsUgAAAAAAEAA5t
+ YW51MiwyLjUrMS4xMiwyLDIACgkQVxhLtiqAAGLslAD+PAMzNOSY7BqepaWEi9NY
+ TwuYPb8Id0CWSWSqF0v0Z+ABAKzvwQ9ISDCl3FmWci7o2lZUrU4MvFxsXzw6nN9z
+ izgE
+ =0c5d
  -----END PGP SIGNATURE-----
 
-Refresh accepted shell contract bounds and migration notes
+Continue shell sessions on authenticated 9P roots

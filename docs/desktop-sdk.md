@@ -86,3 +86,21 @@ does not update an installed component or establish physical acceptance.
 The follow-up pin `74498734` changes only contract prose, provenance and its
 digest list: it corrects the accepted native bounds in the main shell document.
 All library and test files are byte-identical to `88347eb7`, the tested revision.
+
+## Authenticated launch migration
+
+The signed C SDK snapshot `73fe8106da63e1586ab5a900401fb051bb625464`
+provides the launch-authentication helper and authenticated shell handoff.
+Narthex retains the provisioned relay for the process generation, drives the
+bounded SDK conversation, and lends the authenticated role wire to the shell
+session until close. Descriptor flags are checked and CLOEXEC is set before
+opening the role connection. A present invalid descriptor or failed conversation
+cannot fall back to plain attach. No identity is selected from environment data.
+
+`nimble verify` passes with two new descriptor-admission tests plus the existing
+binding and policy suite. The copied SDK file manifest and signed commit object
+were verified. Local evidence is `t317-narthex-local-01` under the development
+evidence directory. The first formatting check failed, was corrected, and the
+final gate passed. This checkpoint has no successful protected Narthex
+owner/restart join yet; generic SDK joins are not a substitute for that gate.
+No installed client or live session was changed.

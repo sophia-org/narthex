@@ -24,12 +24,27 @@ proc close*(owner: FileSession) =
     ssClose(owner.session)
     dealloc(owner.session)
     owner.session = nil
-  for storage in [owner.storage, owner.transaction, owner.objects]:
+  for storage in [
+    owner.storage,
+    owner.transaction,
+    owner.objects,
+    owner.roleStorage,
+    owner.relayStorage,
+    cast[pointer](owner.role),
+    cast[pointer](owner.relay),
+  ]:
     if storage != nil:
       dealloc(storage)
   owner.storage = nil
   owner.transaction = nil
   owner.objects = nil
+  owner.roleStorage = nil
+  owner.relayStorage = nil
+  owner.role = nil
+  owner.relay = nil
+  if owner.relayFd >= 3:
+    discard posix.close(owner.relayFd)
+    owner.relayFd = -1
   if owner.socket != nil:
     owner.socket.close()
     owner.socket = nil
@@ -83,9 +98,87 @@ proc step*(owner: FileSession, deadline = 0'u64) =
     )
   owner.ack()
 
-proc openSession*(path: string, required: uint64): FileSession =
-  result = FileSession()
+proc launchAuthenticationFd*(value: string): cint =
+  ## The environment advertises a descriptor, never an identity or authority.
+  if value.len == 0:
+    raise newException(ValueError, "empty SOPHIA_LAUNCH_AUTH_FD")
+  var number = 0'u64
+  for character in value:
+    if character notin {'0' .. '9'}:
+      raise newException(ValueError, "invalid SOPHIA_LAUNCH_AUTH_FD")
+    let digit = uint64(ord(character) - ord('0'))
+    if number > (uint64(high(cint)) - digit) div 10:
+      raise newException(ValueError, "SOPHIA_LAUNCH_AUTH_FD exceeds descriptor range")
+    number = number * 10 + digit
+  if number < 3:
+    raise newException(ValueError, "SOPHIA_LAUNCH_AUTH_FD must not name standard IO")
+  cint(number)
+
+proc authenticate(owner: FileSession, config: var SsConfig): uint32 =
+  ## The SDK owns the conversation. Retain the borrowed role client until the
+  ## shell session closes; keep the generation's relay capability until teardown.
+  let bytes = ninePStorageBytes(config.msize, 8)
+  owner.role = cast[ptr NinePClient](alloc0(int(ninePStateBytes())))
+  owner.relay = cast[ptr NinePClient](alloc0(int(ninePStateBytes())))
+  owner.roleStorage = alloc0(int(bytes))
+  owner.relayStorage = alloc0(int(bytes))
+  sdkCheck(
+    ninePInit(
+      owner.role,
+      cint(owner.socket.getFd()),
+      config.msize,
+      8,
+      32,
+      owner.roleStorage,
+      bytes,
+    )
+  )
+  sdkCheck(
+    ninePInit(
+      owner.relay, owner.relayFd, config.msize, 8, 32, owner.relayStorage, bytes
+    )
+  )
+  let auth = cast[ptr LaunchAuth](alloc0(int(laStateBytes())))
   try:
+    sdkCheck(laInit(auth, owner.role, owner.relay, "shell", "descriptor", nowMillis()))
+    while laReady(auth) == 0:
+      if stopRequested() != 0:
+        raise newException(ShellStoppedError, "termination requested")
+      if laService(auth, nowMillis(), 65536) != 0:
+        raise newException(ValueError, "shell launch authentication failed")
+      if laReady(auth) != 0:
+        break
+      let now = nowMillis()
+      let wake = laNextWake(auth)
+      let wait =
+        if wake <= now:
+          0.cint
+        else:
+          cint(min(wake - now, 100))
+      var descriptors = [
+        TPollfd(fd: cint(owner.socket.getFd()), events: POLLIN),
+        TPollfd(fd: owner.relayFd, events: POLLIN),
+      ]
+      if ninePWantsWrite(owner.role) != 0:
+        descriptors[0].events = descriptors[0].events or POLLOUT
+      if ninePWantsWrite(owner.relay) != 0:
+        descriptors[1].events = descriptors[1].events or POLLOUT
+      if posix.poll(addr descriptors[0], Tnfds(2), wait) < 0 and errno != EINTR:
+        raiseOSError(osLastError())
+    result = laRoot(auth)
+  finally:
+    laCancel(auth)
+    dealloc(auth)
+
+proc openSession*(path: string, required: uint64): FileSession =
+  result = FileSession(relayFd: -1)
+  try:
+    if existsEnv("SOPHIA_LAUNCH_AUTH_FD"):
+      result.relayFd = getEnv("SOPHIA_LAUNCH_AUTH_FD").launchAuthenticationFd()
+      # Validate before opening the role socket, which could reuse a closed fd.
+      let flags = fcntl(result.relayFd, F_GETFD)
+      if flags < 0 or fcntl(result.relayFd, F_SETFD, flags or FD_CLOEXEC) < 0:
+        raiseOSError(osLastError())
     result.socket = newSocket(Domain.AF_UNIX, SockType.SOCK_STREAM, Protocol.IPPROTO_IP)
     result.socket.connectUnix(path)
     result.session = cast[ptr Ss](alloc0(ssStateBytes().int))
@@ -106,17 +199,32 @@ proc openSession*(path: string, required: uint64): FileSession =
     if capacity == 0:
       raise newException(ValueError, "invalid shell SDK capacity")
     result.storage = alloc0(capacity.int)
-    sdkCheck(
-      ssOpenFdStaging(
-        result.session,
-        result.socket.getFd().cint,
-        addr config,
-        result.storage,
-        capacity,
-        result.transaction,
-        65536,
+    if result.relayFd >= 3:
+      let root = result.authenticate(config)
+      sdkCheck(
+        ssOpenAttachedStaging(
+          result.session,
+          result.role,
+          root,
+          addr config,
+          result.storage,
+          capacity,
+          result.transaction,
+          65536,
+        )
       )
-    )
+    else:
+      sdkCheck(
+        ssOpenFdStaging(
+          result.session,
+          result.socket.getFd().cint,
+          addr config,
+          result.storage,
+          capacity,
+          result.transaction,
+          65536,
+        )
+      )
     let deadline = nowMillis() + 10_000
     while ssState(result.session) == SsState.negotiating:
       result.step(deadline)

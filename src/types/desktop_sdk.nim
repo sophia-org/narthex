@@ -1,6 +1,14 @@
 ## Public C SDK values only. Decoded pointers borrow the input record;
 ## copy semantic values before consuming an event or reusing object storage.
 type
+  NinePClient* {.
+    importc: "struct sophia_9p_client", header: "sophia_9p_client.h", incompleteStruct
+  .} = object
+
+  LaunchAuth* {.
+    importc: "struct sophia_la_client", header: "sophia_launch_auth.h", incompleteStruct
+  .} = object
+
   SfText* {.
     importc: "struct sophia_sf_text", header: "sophia_shell_files_roles.h", bycopy
   .} = object
